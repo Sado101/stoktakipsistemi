@@ -1,0 +1,90 @@
+from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from datetime import timedelta
+from werkzeug.exceptions import HTTPException
+from dotenv import load_dotenv
+import os
+
+db = SQLAlchemy()
+
+def _required_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f'{name} ortam değişkeni tanımlı değil')
+    return value
+
+def create_app():
+    load_dotenv()
+    app = Flask(__name__)
+
+    app.secret_key = _required_env('SECRET_KEY')
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=20)
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, '..', 'stok_v2.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+
+    CORS(app, supports_credentials=True, origins=[
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:3003',
+        'http://localhost:3004',
+    ])
+
+    db.init_app(app)
+
+    from .routes.subeler import subeler_bp
+    from .routes.urunler import urunler_bp
+    from .routes.stok import stok_bp
+    from .routes.hareketler import hareketler_bp
+    from .routes.ciro import ciro_bp, AylikCiro
+    from .routes.auth import auth_bp
+
+    app.register_blueprint(subeler_bp, url_prefix='/api/subeler')
+    app.register_blueprint(urunler_bp, url_prefix='/api/urunler')
+    app.register_blueprint(stok_bp, url_prefix='/api/stok')
+    app.register_blueprint(hareketler_bp, url_prefix='/api/hareketler')
+    app.register_blueprint(ciro_bp, url_prefix='/api/ciro')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+
+    @app.errorhandler(HTTPException)
+    def handle_http_error(error):
+        return jsonify({'error': error.description or 'İstek işlenemedi'}), error.code
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        app.logger.exception('Beklenmeyen sunucu hatası')
+        return jsonify({'error': 'Beklenmeyen bir hata oluştu'}), 500
+
+    with app.app_context():
+        db.create_all()
+        _migrate_db()
+
+    return app
+
+
+def _migrate_db():
+    """Mevcut tablolara eksik kolonları ekler (SQLite ALTER TABLE)."""
+    migrations = [
+        "ALTER TABLE subeler ADD COLUMN adres VARCHAR(250)",
+        "ALTER TABLE subeler ADD COLUMN telefon VARCHAR(30)",
+        "ALTER TABLE subeler ADD COLUMN olusturma DATETIME",
+        "UPDATE subeler SET olusturma = CURRENT_TIMESTAMP WHERE olusturma IS NULL",
+        "ALTER TABLE subeler ADD COLUMN aktif BOOLEAN DEFAULT 1 NOT NULL",
+        "ALTER TABLE subeler ADD COLUMN bloke_bitis DATETIME",
+        "ALTER TABLE subeler ADD COLUMN stok_islem_izin BOOLEAN DEFAULT 1 NOT NULL",
+        "ALTER TABLE subeler ADD COLUMN rapor_izin BOOLEAN DEFAULT 1 NOT NULL",
+    ]
+    with db.engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(db.text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Kolon zaten mevcut, atla
