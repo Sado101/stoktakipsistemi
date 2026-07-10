@@ -8,9 +8,11 @@ __pycache__/
 *.pyd
 .Python
 .venv/
+venv_eski_bozuk/
 venv/
 env/
 ENV/
+
 
 # Local database / runtime files
 *.db
