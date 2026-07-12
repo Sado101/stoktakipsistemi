@@ -3,6 +3,7 @@ import { api } from '../api';
 import {
   Ban,
   CalendarClock,
+  KeyRound,
   LockKeyhole,
   Plus,
   Search,
