@@ -79,19 +79,19 @@ def save_ciro():
         return engel
 
     kayit = AylikCiro.query.filter_by(
-        ay=data['ay'], yil=data['yil'],
+        ay=ay, yil=yil,
         sube_id=sube_id
     ).first()
     if kayit:
-        kayit.ciro = float(data['ciro'])
-        kayit.adisyon = int(data['adisyon'])
+        kayit.ciro = ciro
+        kayit.adisyon = adisyon
         kayit.guncelleme = datetime.utcnow()
     else:
         kayit = AylikCiro(
-            ay=data['ay'], yil=data['yil'],
+            ay=ay, yil=yil,
             sube_id=sube_id,
-            ciro=float(data['ciro']),
-            adisyon=int(data['adisyon'])
+            ciro=ciro,
+            adisyon=adisyon
         )
         db.session.add(kayit)
     db.session.commit()

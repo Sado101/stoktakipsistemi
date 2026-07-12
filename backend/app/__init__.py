@@ -14,6 +14,13 @@ def _required_env(name):
         raise RuntimeError(f'{name} ortam değişkeni tanımlı değil')
     return value
 
+
+def _cors_origins():
+    raw = os.getenv('CORS_ORIGINS')
+    if not raw:
+        raw = 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004'
+    return [origin.strip() for origin in raw.split(',') if origin.strip()]
+
 def create_app():
     load_dotenv()
     app = Flask(__name__)
@@ -29,13 +36,7 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['PROPAGATE_EXCEPTIONS'] = False
 
-    CORS(app, supports_credentials=True, origins=[
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-        'http://localhost:3003',
-        'http://localhost:3004',
-    ])
+    CORS(app, supports_credentials=True, origins=_cors_origins())
 
     db.init_app(app)
 

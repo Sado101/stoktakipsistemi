@@ -81,39 +81,71 @@ def create_urun():
 
     if Urun.query.filter_by(urun_id=urun_id).first():
         return jsonify({'error': 'Bu ürün ID zaten kullanılıyor'}), 400
-    if not Sube.query.get(data['sube_id']):
+    if not Sube.query.get(sube_id):
         return jsonify({'error': 'Şube bulunamadı'}), 400
-    engel = stok_islem_izni(data['sube_id'])
+    engel = stok_islem_izni(sube_id)
     if engel:
         return engel
+
     urun = Urun(
-        urun_id=data['urun_id'],
-        ad=data['ad'],
-        fiyat=float(data['fiyat']),
-        kategori=data.get('kategori', 'diger'),
-        sube_id=data['sube_id'],
-        devreden_stok=float(data.get('devreden_stok', 0))
+        urun_id=urun_id,
+        ad=ad,
+        fiyat=fiyat,
+        kategori=kategori,
+        sube_id=sube_id,
+        devreden_stok=devreden_stok
     )
     db.session.add(urun)
     db.session.commit()
     return jsonify(urun.to_dict()), 201
 
+
 @urunler_bp.route('/<int:id>', methods=['PUT'])
 @login_required
 def update_urun(id):
     urun = Urun.query.get_or_404(id)
-    data = request.get_json()
-    hedef_sube_id = data.get('sube_id', urun.sube_id)
+    data, hata = json_body()
+    if hata:
+        return hata
+
+    hedef_sube_id = urun.sube_id
+    if 'sube_id' in data:
+        hedef_sube_id, hata = parse_int(data.get('sube_id'), 'sube_id', required=True, min_value=1)
+        if hata:
+            return hata
+        if not Sube.query.get(hedef_sube_id):
+            return jsonify({'error': 'Şube bulunamadı'}), 400
+
     engel = stok_islem_izni(urun.sube_id) or stok_islem_izni(hedef_sube_id)
     if engel:
         return engel
-    urun.ad = data.get('ad', urun.ad)
-    urun.fiyat = float(data.get('fiyat', urun.fiyat))
-    urun.kategori = data.get('kategori', urun.kategori)
-    urun.sube_id = data.get('sube_id', urun.sube_id)
-    urun.devreden_stok = float(data.get('devreden_stok', urun.devreden_stok))
+
+    if 'ad' in data:
+        ad = str(data.get('ad', '')).strip()
+        if not ad:
+            return bad_request('Ürün adı boş olamaz')
+        urun.ad = ad
+    if 'fiyat' in data:
+        fiyat, hata = parse_float(data.get('fiyat'), 'fiyat', required=True, min_value=0)
+        if hata:
+            return hata
+        urun.fiyat = fiyat
+    if 'kategori' in data:
+        kategori, hata = _kategori_dogrula(data.get('kategori'))
+        if hata:
+            return hata
+        urun.kategori = kategori
+    if 'sube_id' in data:
+        urun.sube_id = hedef_sube_id
+    if 'devreden_stok' in data:
+        devreden_stok, hata = parse_float(data.get('devreden_stok'), 'devreden_stok', required=True, min_value=0)
+        if hata:
+            return hata
+        urun.devreden_stok = devreden_stok
+
     db.session.commit()
     return jsonify(urun.to_dict())
+
 
 @urunler_bp.route('/<int:id>', methods=['DELETE'])
 @login_required
@@ -126,6 +158,7 @@ def delete_urun(id):
     db.session.delete(urun)
     db.session.commit()
     return jsonify({'message': 'Silindi'})
+
 
 @urunler_bp.route('/kategoriler', methods=['GET'])
 @login_required

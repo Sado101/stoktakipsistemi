@@ -86,10 +86,12 @@ def _product_row(urun, all_hareketler):
     guncel = devreden + giris - cikis
     latest = sorted(movements, key=lambda h: (h.tarih, h.id), reverse=True)
     son_hareket = ""
-    if latest:
-        h = latest[0]
+    for h in latest:
+        if h.hareket_turu not in {"giris", "cikis"}:
+            continue
         sign = "+" if h.hareket_turu == "giris" else "-"
         son_hareket = f"{_date_short(h.tarih)} {'Giriş' if h.hareket_turu == 'giris' else 'Çıkış'} {sign}{_num(h.miktar)}"
+        break
     return {
         "urun": urun,
         "movements": movements,
@@ -223,8 +225,10 @@ def _product_detail_sheet(ay, yil, subtitle, product_rows):
 def _daily_rows(product_row):
     grouped = {}
     for h in sorted(product_row["movements"], key=lambda x: (x.tarih, x.id)):
+        if h.hareket_turu not in {"giris", "cikis"}:
+            continue
         item = grouped.setdefault(h.tarih, {"giris": 0, "cikis": 0, "aciklama": []})
-        item[h.hareket_turu] += float(h.miktar)
+        item[h.hareket_turu] = item.get(h.hareket_turu, 0) + float(h.miktar)
         if h.aciklama:
             item["aciklama"].append(h.aciklama)
 
@@ -256,7 +260,7 @@ def _movements_sheet(ay, yil, subtitle, hareketler):
             _date_full(h.tarih),
             h.urun.ad if h.urun else "",
             KATEGORI_ADLARI.get(h.urun.kategori, h.urun.kategori) if h.urun else "",
-            "Giriş" if h.hareket_turu == "giris" else "Çıkış",
+            "Giriş" if h.hareket_turu == "giris" else "Çıkış" if h.hareket_turu == "cikis" else "Geçersiz",
             h.miktar,
             "adet",
             h.aciklama or "",
