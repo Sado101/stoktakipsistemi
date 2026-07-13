@@ -4,6 +4,7 @@ import {
   Ban,
   CalendarClock,
   KeyRound,
+  Shield,
   LockKeyhole,
   Plus,
   Search,
@@ -23,6 +24,9 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
   const [arama, setArama] = useState('');
   const [seciliId, setSeciliId] = useState(subeler[0]?.id || null);
   const [islemde, setIslemde] = useState(false);
+  const [yeniSifre, setYeniSifre] = useState('');
+  const [adminPanelAcik, setAdminPanelAcik] = useState(false);
+  const [adminForm, setAdminForm] = useState({ username: '', current_password: '', new_password: '', new_password_confirm: '' });
 
   const filtreliSubeler = useMemo(() => {
     const q = arama.trim().toLowerCase();
@@ -63,6 +67,76 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
     }
   };
 
+  const sifreSifirla = async (e) => {
+    e.preventDefault();
+    if (!secili) return;
+    const temizSifre = yeniSifre.trim();
+    if (temizSifre.length < 6) {
+      onNotify?.('error', 'Şube şifresi en az 6 karakter olmalı.');
+      return;
+    }
+
+    setIslemde(true);
+    try {
+      await api.resetSubeSifre(secili.id, temizSifre);
+      setYeniSifre('');
+      onNotify?.('success', 'Şube şifresi güncellendi.');
+    } catch (e) {
+      onNotify?.('error', e.message);
+    } finally {
+      setIslemde(false);
+    }
+  };
+
+  const adminBilgiGetir = async () => {
+    try {
+      const data = await api.getAdminSettings();
+      setAdminForm(f => ({ ...f, username: data.username || '' }));
+    } catch (e) {
+      onNotify?.('error', e.message);
+    }
+  };
+
+  const adminPanelToggle = async () => {
+    const acilacak = !adminPanelAcik;
+    setAdminPanelAcik(acilacak);
+    if (acilacak && !adminForm.username) {
+      await adminBilgiGetir();
+    }
+  };
+
+  const adminKaydet = async (e) => {
+    e.preventDefault();
+    if (!adminForm.current_password) {
+      onNotify?.('error', 'Mevcut admin şifresi zorunludur.');
+      return;
+    }
+    if (!adminForm.username.trim()) {
+      onNotify?.('error', 'Admin kullanıcı adı boş olamaz.');
+      return;
+    }
+    if (adminForm.new_password && adminForm.new_password !== adminForm.new_password_confirm) {
+      onNotify?.('error', 'Yeni şifreler eşleşmiyor.');
+      return;
+    }
+
+    setIslemde(true);
+    try {
+      const data = await api.updateAdminSettings({
+        username: adminForm.username.trim(),
+        current_password: adminForm.current_password,
+        new_password: adminForm.new_password,
+        new_password_confirm: adminForm.new_password_confirm,
+      });
+      setAdminForm(f => ({ ...f, username: data.username || f.username, current_password: '', new_password: '', new_password_confirm: '' }));
+      onNotify?.('success', 'Admin bilgileri güncellendi.');
+    } catch (e) {
+      onNotify?.('error', e.message);
+    } finally {
+      setIslemde(false);
+    }
+  };
+
   return (
     <div className="branch-settings-page">
       <div className="page-header">
@@ -78,6 +152,34 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
         <button className="btn btn-primary" onClick={onYeniSube}>
           <Plus size={17} /> Yeni Şube Ekle
         </button>
+      </div>
+
+      <div className="admin-security-card card">
+        <button className="admin-security-toggle" type="button" onClick={adminPanelToggle}>
+          <span><Shield size={18} /> Admin Güvenliği</span>
+          <strong>{adminPanelAcik ? 'Kapat' : 'Aç'}</strong>
+        </button>
+        {adminPanelAcik && (
+          <form className="admin-security-form" onSubmit={adminKaydet}>
+            <div className="form-group">
+              <label>Admin Kullanıcı Adı</label>
+              <input value={adminForm.username} onChange={e => setAdminForm(f => ({ ...f, username: e.target.value }))} autoComplete="username" />
+            </div>
+            <div className="form-group">
+              <label>Mevcut Admin Şifresi</label>
+              <input type="password" value={adminForm.current_password} onChange={e => setAdminForm(f => ({ ...f, current_password: e.target.value }))} autoComplete="current-password" />
+            </div>
+            <div className="form-group">
+              <label>Yeni Şifre</label>
+              <input type="password" value={adminForm.new_password} onChange={e => setAdminForm(f => ({ ...f, new_password: e.target.value }))} placeholder="Değişmeyecekse boş bırak" autoComplete="new-password" />
+            </div>
+            <div className="form-group">
+              <label>Yeni Şifre Tekrar</label>
+              <input type="password" value={adminForm.new_password_confirm} onChange={e => setAdminForm(f => ({ ...f, new_password_confirm: e.target.value }))} placeholder="Değişmeyecekse boş bırak" autoComplete="new-password" />
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={islemde}>Admin Bilgilerini Kaydet</button>
+          </form>
+        )}
       </div>
 
       <div className="branch-settings-layout">
@@ -175,6 +277,25 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
                   )}
                 </div>
               </div>
+
+              <form className="branch-form-section branch-password-section" onSubmit={sifreSifirla}>
+                <label>Şube şifresi sıfırla</label>
+                <div className="branch-password-control">
+                  <KeyRound size={17} />
+                  <input
+                    type="password"
+                    value={yeniSifre}
+                    disabled={islemde}
+                    onChange={e => setYeniSifre(e.target.value)}
+                    placeholder="Yeni şifre"
+                    autoComplete="new-password"
+                  />
+                  <button className="btn btn-secondary btn-sm" type="submit" disabled={islemde || yeniSifre.trim().length < 6}>
+                    Sıfırla
+                  </button>
+                </div>
+                <div className="branch-password-hint">Yeni şifre en az 6 karakter olmalı.</div>
+              </form>
 
               <div className="branch-toggle-list">
                 <div>

@@ -4,6 +4,7 @@ from app.models import Sube, Urun, StokHareketi, AylikArsiv
 from app.routes.ciro import AylikCiro
 from app.routes.auth import login_required
 from app.routes.permissions import izinli_sube_id
+from app.utils.validation import json_body, bad_request
 from sqlalchemy import func
 from datetime import datetime
 import functools
@@ -97,6 +98,23 @@ def update_sube_ayarlar(id):
 
     db.session.commit()
     return jsonify(sube.to_dict())
+
+
+@subeler_bp.route('/<int:id>/sifre', methods=['PUT'])
+@admin_required
+def reset_sube_sifre(id):
+    sube = Sube.query.get_or_404(id)
+    data, hata = json_body()
+    if hata:
+        return hata
+
+    yeni_sifre = str(data.get('sifre', '')).strip()
+    if len(yeni_sifre) < 6:
+        return bad_request('Şube şifresi en az 6 karakter olmalı')
+
+    sube.sifre = yeni_sifre
+    db.session.commit()
+    return jsonify({'message': 'Şube şifresi güncellendi'})
 
 
 @subeler_bp.route('/<int:id>/bilgi', methods=['GET'])

@@ -2,6 +2,21 @@ from app import db
 from datetime import datetime
 import json
 
+
+class AdminAyar(db.Model):
+    __tablename__ = 'admin_ayar'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    olusturma = db.Column(db.DateTime, default=datetime.utcnow)
+    guncelleme = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'username': self.username,
+            'guncelleme': self.guncelleme.strftime('%d.%m.%Y %H:%M') if self.guncelleme else ''
+        }
+
 class Sube(db.Model):
     __tablename__ = 'subeler'
     id = db.Column(db.Integer, primary_key=True)

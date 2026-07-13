@@ -15,6 +15,11 @@ def _required_env(name):
     return value
 
 
+def _optional_env(name):
+    value = os.getenv(name)
+    return value.strip() if value else ''
+
+
 def _cors_origins():
     raw = os.getenv('CORS_ORIGINS')
     if not raw:
@@ -66,6 +71,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         _migrate_db()
+        _ensure_admin_account()
 
     return app
 
@@ -89,3 +95,20 @@ def _migrate_db():
                 conn.commit()
             except Exception:
                 pass  # Kolon zaten mevcut, atla
+
+
+
+def _ensure_admin_account():
+    from .models import AdminAyar
+
+    if AdminAyar.query.first():
+        return
+
+    username = _optional_env('ADMIN_USERNAME')
+    password_hash = _optional_env('ADMIN_PASSWORD_HASH')
+    if not username or not password_hash:
+        raise RuntimeError('İlk admin hesabı için ADMIN_USERNAME ve ADMIN_PASSWORD_HASH ortam değişkenleri tanımlı olmalı')
+
+    admin = AdminAyar(username=username, password_hash=password_hash)
+    db.session.add(admin)
+    db.session.commit()

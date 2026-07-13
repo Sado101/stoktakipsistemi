@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, session
 from app import db
-from app.models import Sube
+from app.models import AdminAyar, Sube
 from datetime import datetime, timedelta
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 import functools
 import os
 
@@ -11,23 +11,27 @@ auth_bp = Blueprint('auth', __name__)
 _auth_failures = {}
 
 
-def _required_env(name):
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f'{name} ortam değişkeni tanımlı değil')
-    return value
+def _admin_record():
+    return AdminAyar.query.order_by(AdminAyar.id.asc()).first()
 
 
 def _admin_username():
-    return _required_env('ADMIN_USERNAME')
-
-
-def _admin_password_hash():
-    return _required_env('ADMIN_PASSWORD_HASH')
+    admin = _admin_record()
+    return admin.username if admin else ''
 
 
 def _admin_password_matches(password):
-    return check_password_hash(_admin_password_hash(), password)
+    admin = _admin_record()
+    return bool(admin and check_password_hash(admin.password_hash, password))
+
+
+def admin_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('is_admin'):
+            return jsonify({'error': 'Bu işlem için admin girişi gerekli'}), 403
+        return f(*args, **kwargs)
+    return decorated
 
 
 def _env_int(name, default):
@@ -113,8 +117,8 @@ def login():
         session.permanent = True
         session['is_admin'] = True
         session['sube_id'] = None
-        session['username'] = 'Admin'
-        return jsonify({'role': 'admin', 'username': 'Admin'})
+        session['username'] = _admin_username()
+        return jsonify({'role': 'admin', 'username': _admin_username()})
 
     sube = Sube.query.filter_by(kod=username).first()
     if sube and sube.sifre == password:
@@ -165,6 +169,62 @@ def kilidi_ac():
         return limited
     return jsonify({'error': 'Hatalı şifre'}), 401
 
+
+
+@auth_bp.route('/admin', methods=['GET'])
+@admin_required
+def get_admin_settings():
+    admin = _admin_record()
+    if not admin:
+        return jsonify({'error': 'Admin hesabı bulunamadı'}), 404
+    return jsonify(admin.to_dict())
+
+
+@auth_bp.route('/admin', methods=['PUT'])
+@admin_required
+def update_admin_settings():
+    admin = _admin_record()
+    if not admin:
+        return jsonify({'error': 'Admin hesabı bulunamadı'}), 404
+
+    data = request.get_json(silent=True) or {}
+    mevcut_sifre = str(data.get('current_password', '')).strip()
+    yeni_kullanici = str(data.get('username', '')).strip()
+    yeni_sifre = str(data.get('new_password', '')).strip()
+    yeni_sifre_tekrar = str(data.get('new_password_confirm', '')).strip()
+
+    if not mevcut_sifre:
+        return jsonify({'error': 'Mevcut admin şifresi zorunludur'}), 400
+    if not check_password_hash(admin.password_hash, mevcut_sifre):
+        return jsonify({'error': 'Mevcut admin şifresi hatalı'}), 401
+    if not yeni_kullanici:
+        return jsonify({'error': 'Admin kullanıcı adı boş olamaz'}), 400
+    if len(yeni_kullanici) < 3:
+        return jsonify({'error': 'Admin kullanıcı adı en az 3 karakter olmalı'}), 400
+
+    degisti = False
+    if yeni_kullanici != admin.username:
+        if AdminAyar.query.filter(AdminAyar.username == yeni_kullanici, AdminAyar.id != admin.id).first():
+            return jsonify({'error': 'Bu admin kullanıcı adı zaten kullanılıyor'}), 400
+        admin.username = yeni_kullanici
+        session['username'] = yeni_kullanici
+        degisti = True
+
+    if yeni_sifre:
+        if len(yeni_sifre) < 8:
+            return jsonify({'error': 'Yeni admin şifresi en az 8 karakter olmalı'}), 400
+        if yeni_sifre != yeni_sifre_tekrar:
+            return jsonify({'error': 'Yeni şifreler eşleşmiyor'}), 400
+        admin.password_hash = generate_password_hash(yeni_sifre)
+        degisti = True
+
+    if not degisti:
+        return jsonify({'error': 'Değişiklik yapılmadı'}), 400
+
+    db.session.commit()
+    return jsonify({'message': 'Admin bilgileri güncellendi', **admin.to_dict()})
+
+
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     session.clear()
@@ -173,7 +233,7 @@ def logout():
 @auth_bp.route('/me', methods=['GET'])
 def me():
     if session.get('is_admin'):
-        return jsonify({'role': 'admin', 'username': 'Admin'})
+        return jsonify({'role': 'admin', 'username': session.get('username') or _admin_username()})
     sube_id = session.get('sube_id')
     if sube_id:
         sube = Sube.query.get(sube_id)

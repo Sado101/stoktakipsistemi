@@ -38,6 +38,7 @@ export const api = {
   createSube: (data) => req('/subeler/', { method: 'POST', body: JSON.stringify(data) }),
   updateSube: (id, data) => req(`/subeler/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateSubeAyarlar: (id, data) => req(`/subeler/${id}/ayarlar`, { method: 'PUT', body: JSON.stringify(data) }),
+  resetSubeSifre: (id, sifre) => req(`/subeler/${id}/sifre`, { method: 'PUT', body: JSON.stringify({ sifre }) }),
   deleteSube: (id) => req(`/subeler/${id}`, { method: 'DELETE' }),
   getSubeBilgi: (id) => req(`/subeler/${id}/bilgi`),
   updateSubeBilgi: (id, data) => req(`/subeler/${id}/bilgi`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -65,6 +66,8 @@ export const api = {
   saveCiro: (data) => req('/ciro/', { method: 'POST', body: JSON.stringify(data) }),
 
   kilidiAc: (sifre) => req('/auth/kilidi-ac', { method: 'POST', body: JSON.stringify({ sifre }) }),
+  getAdminSettings: () => req('/auth/admin'),
+  updateAdminSettings: (data) => req('/auth/admin', { method: 'PUT', body: JSON.stringify(data) }),
   login: (data) => req('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   logout: () => req('/auth/logout', { method: 'POST' }),
   getMe: () => req('/auth/me'),
