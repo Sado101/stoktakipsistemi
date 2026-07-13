@@ -1,5 +1,6 @@
 from app import db
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import json
 
 
@@ -102,8 +103,13 @@ class StokHareketi(db.Model):
     miktar = db.Column(db.Float, nullable=False)
     tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     aciklama = db.Column(db.String(250))
+    olusturma = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
 
     def to_dict(self):
+        olusturma = self.olusturma
+        if olusturma and olusturma.tzinfo is None:
+            olusturma = olusturma.replace(tzinfo=timezone.utc)
+        yerel_olusturma = olusturma.astimezone(ZoneInfo('Europe/Istanbul')) if olusturma else None
         return {
             'id': self.id,
             'urun_id': self.urun_id,
@@ -112,6 +118,8 @@ class StokHareketi(db.Model):
             'miktar': self.miktar,
             'tarih': self.tarih.strftime('%d.%m.%Y'),
             'tarih_iso': self.tarih.strftime('%Y-%m-%d'),
+            'saat': yerel_olusturma.strftime('%H:%M') if yerel_olusturma else '',
+            'olusturma': yerel_olusturma.strftime('%d.%m.%Y %H:%M') if yerel_olusturma else '',
             'aciklama': self.aciklama
         }
 
