@@ -27,8 +27,9 @@ def _cors_origins():
     return [origin.strip() for origin in raw.split(',') if origin.strip()]
 
 def create_app():
-    load_dotenv()
-    frontend_build = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'build'))
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    load_dotenv(os.path.join(project_root, '.env'))
+    frontend_build = os.path.join(project_root, 'frontend', 'build')
     app = Flask(__name__, static_folder=frontend_build, static_url_path='')
 
     app.secret_key = _required_env('SECRET_KEY')

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import { api } from '../api';
 import { ArrowDown, ArrowUp, Camera, MousePointer2, PackagePlus, Pencil, Save, Search, Trash2, X } from 'lucide-react';
 
@@ -20,7 +21,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   const [kameraAcik, setKameraAcik] = useState(false);
   const [kameraMesaji, setKameraMesaji] = useState('');
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const scannerControlsRef = useRef(null);
   const scanningRef = useRef(false);
 
   const subeSecenekleri = kullanici?.role === 'sube'
@@ -85,31 +86,23 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
 
   const kamerayiKapat = () => {
     scanningRef.current = false;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+    if (scannerControlsRef.current) {
+      scannerControlsRef.current.stop();
+      scannerControlsRef.current = null;
     }
     setKameraAcik(false);
   };
 
   const kameraBaslat = async () => {
-    if (!('BarcodeDetector' in window)) {
-      onNotify?.('error', 'Bu tarayıcı kamera ile barkod okumayı desteklemiyor. USB okuyucu veya manuel giriş kullanın.');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      onNotify?.('error', 'Bu tarayıcı kamera erişimini desteklemiyor. USB okuyucu veya manuel giriş kullanın.');
       return;
     }
 
     try {
       setKameraMesaji('Kamera açılıyor...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.current = stream;
       setKameraAcik(true);
-      window.setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-          barkodTara();
-        }
-      }, 0);
+      window.setTimeout(() => barkodTara(), 0);
     } catch (e) {
       setKameraMesaji('');
       onNotify?.('error', 'Kamera açılamadı. Tarayıcı kamera iznini kontrol edin.');
@@ -117,28 +110,29 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   };
 
   const barkodTara = async () => {
-    const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'] });
+    if (!videoRef.current) return;
+
     scanningRef.current = true;
     setKameraMesaji('Barkodu kameraya gösterin.');
 
-    const tara = async () => {
-      if (!scanningRef.current || !videoRef.current) return;
-      try {
-        const codes = await detector.detect(videoRef.current);
-        if (codes.length > 0) {
-          const kod = codes[0].rawValue || '';
+    try {
+      const reader = new BrowserMultiFormatReader();
+      scannerControlsRef.current = await reader.decodeFromConstraints(
+        { video: { facingMode: { ideal: 'environment' } } },
+        videoRef.current,
+        (result) => {
+          if (!result || !scanningRef.current) return;
+          const kod = result.getText();
           setForm(f => ({ ...f, urun_id: kod }));
           kamerayiKapat();
           onNotify?.('success', 'Barkod alanı dolduruldu.');
-          return;
         }
-      } catch (e) {
-        setKameraMesaji('Barkod okunamadı, tekrar deneyin.');
-      }
-      window.requestAnimationFrame(tara);
-    };
-
-    tara();
+      );
+    } catch (e) {
+      setKameraMesaji('');
+      setKameraAcik(false);
+      onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini ve bağlantıyı kontrol edin.');
+    }
   };
 
   const formPayload = () => ({
