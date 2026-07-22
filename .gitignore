@@ -17,6 +17,8 @@ ENV/
 .env
 .env.*
 !.env.example
+!frontend/.env.production.example
+!frontend/.env.example
 
 # Local database / runtime files
 *.db

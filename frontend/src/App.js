@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from './api';
 import Login from './components/Login';
-import UrunGirisi from './components/UrunGirisi';
 import StokBilgisi from './components/StokBilgisi';
 import StokDuzenleme from './components/StokDuzenleme';
 import GelenGiden from './components/GelenGiden';
 import Arsiv from './components/Arsiv';
 import SubeAyarlari from './components/SubeAyarlari';
+import BarkodIslem from './components/BarkodIslem';
 import skLogo from './assets/sk-logo.png';
-import { Archive, AlertTriangle, CheckCircle2, ClipboardList, Edit3, Info, PackagePlus, Repeat2, SlidersHorizontal, X, XCircle } from 'lucide-react';
+import { Archive, AlertTriangle, CheckCircle2, ClipboardList, Info, PackagePlus, Repeat2, ScanBarcode, SlidersHorizontal, X, XCircle } from 'lucide-react';
 import './App.css';
 
 const SAYFALAR = [
   { key: 'stok-bilgisi',   label: 'Stok',       Icon: ClipboardList },
   { key: 'gelen-giden',    label: 'Hareketler', Icon: Repeat2 },
-  { key: 'urun-girisi',    label: 'Ürün Ekle',  Icon: PackagePlus },
-  { key: 'stok-duzenleme', label: 'Düzenle',    Icon: Edit3 },
+  { key: 'barkod-islem',   label: 'Barkod',     Icon: ScanBarcode },
+  { key: 'stok-duzenleme', label: 'Ürünler',    Icon: PackagePlus },
   { key: 'arsiv',          label: 'Arşiv',      Icon: Archive },
   { key: 'sube-ayarlari',  label: 'Şube Ayarları', Icon: SlidersHorizontal, adminOnly: true },
 ];
@@ -416,10 +416,10 @@ export default function App() {
       {/* Ana içerik */}
       <main className="main">
         <div className="page-wrap">
-         {sayfa === 'urun-girisi' && <UrunGirisi subeler={subeler} secilenSube={secilenSube} onKayit={tetikleYenile} kullanici={kullanici} onNotify={bildir} />}
           {sayfa === 'stok-bilgisi'   && <StokBilgisi secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
           {sayfa === 'stok-duzenleme' && <StokDuzenleme subeler={subeler} secilenSube={secilenSube} onGuncelle={tetikleYenile} kullanici={kullanici} onNotify={bildir} onConfirm={onayIste} />}
           {sayfa === 'gelen-giden'    && <GelenGiden secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
           {sayfa === 'arsiv'          && <Arsiv secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}
           {sayfa === 'sube-ayarlari' && kullanici.role === 'admin' && <SubeAyarlari subeler={subeler} onYenile={subeleriGetir} onYeniSube={() => setSubeModal(true)} onNotify={bildir} onConfirm={onayIste} />}
         </div>

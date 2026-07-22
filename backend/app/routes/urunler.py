@@ -120,6 +120,14 @@ def update_urun(id):
     if engel:
         return engel
 
+    if 'urun_id' in data:
+        yeni_urun_id = str(data.get('urun_id', '')).strip()
+        if not yeni_urun_id:
+            return bad_request('Ürün ID boş olamaz')
+        mevcut = Urun.query.filter_by(urun_id=yeni_urun_id).first()
+        if mevcut and mevcut.id != urun.id:
+            return jsonify({'error': 'Bu ürün ID zaten kullanılıyor'}), 400
+        urun.urun_id = yeni_urun_id
     if 'ad' in data:
         ad = str(data.get('ad', '')).strip()
         if not ad:

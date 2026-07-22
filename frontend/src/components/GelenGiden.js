@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { api } from '../api';
 import {
   Archive,
@@ -12,6 +12,7 @@ import {
   CupSoda,
   FileText,
   Leaf,
+  MoreVertical,
   Package,
   PackageCheck,
   PackageOpen,
@@ -49,6 +50,21 @@ function sayi(value) {
   return Number(value || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
 }
 
+
+function saatFmt(h) {
+  if (h?.saat) return h.saat;
+  const match = String(h?.olusturma || '').match(/(\d{2}:\d{2})/);
+  return match ? match[1] : '';
+}
+
+function aciklamaFmt(h) {
+  const varsayilan = h?.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış';
+  const metin = String(h?.aciklama || '').trim();
+  if (!metin) return varsayilan;
+  if (metin.toLowerCase().startsWith('barkod sayfası ile')) return varsayilan;
+  return metin;
+}
+
 function kategoriBilgi(key) {
   return KATEGORILER.find(k => k.key === key) || KATEGORILER[0];
 }
@@ -70,6 +86,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const [harModal, setHarModal] = useState(false);
   const [duzenlenenHareket, setDuzenlenenHareket] = useState(null);
   const [acikMenu, setAcikMenu] = useState(null);
+  const [acikGun, setAcikGun] = useState(null);
 
   useEffect(() => {
     const getir = async () => {
@@ -104,6 +121,24 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     if (!seciliUrun) return [];
     return hareketler.filter(h => h.urun_id === seciliUrun.id);
   }, [hareketler, seciliUrun]);
+
+
+  const gunlukHareketler = useMemo(() => {
+    const gruplar = new Map();
+    seciliHareketler.forEach(h => {
+      const key = h.tarih_iso || h.tarih;
+      if (!gruplar.has(key)) {
+        gruplar.set(key, { key, tarih: h.tarih, tarih_iso: h.tarih_iso, giris: 0, cikis: 0, kayitlar: [] });
+      }
+      const grup = gruplar.get(key);
+      if (h.hareket_turu === 'giris') grup.giris += Number(h.miktar || 0);
+      if (h.hareket_turu === 'cikis') grup.cikis += Number(h.miktar || 0);
+      grup.kayitlar.push(h);
+    });
+    return [...gruplar.values()]
+      .map(g => ({ ...g, kayitlar: [...g.kayitlar].sort((a, b) => Number(b.id || 0) - Number(a.id || 0)) }))
+      .sort((a, b) => String(b.tarih_iso || b.tarih).localeCompare(String(a.tarih_iso || a.tarih)));
+  }, [seciliHareketler]);
 
   const kategoriAktif = kategoriBilgi(kategori);
   const KategoriIcon = kategoriAktif.Icon;
@@ -201,10 +236,10 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
         )}
         {!ayKapali && (
           <div className="movement-action-group">
-            <button className="btn btn-success" onClick={() => modalAc(null, 'giris')}>
+            <button className="btn btn-success" onClick={() => modalAc(seciliUrun, 'giris')}>
               <ChevronUp size={17} /> Giriş Ekle
             </button>
-            <button className="btn btn-danger" onClick={() => modalAc(null, 'cikis')}>
+            <button className="btn btn-danger" onClick={() => modalAc(seciliUrun, 'cikis')}>
               <ChevronDown size={17} /> Çıkış Ekle
             </button>
           </div>
@@ -320,7 +355,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
           </div>
 
           <div className="detail-table-card">
-            <div className="detail-table-title"><CalendarDays size={17} /> Günlük Hareket Listesi</div>
+            <div className="detail-table-title"><CalendarDays size={17} /> Günlük Hareket Listesi <span>{gunlukHareketler.length} gün · {seciliHareketler.length} kayıt</span></div>
             <div className="table-wrap movement-table-wrap">
               <table>
                 <thead>
@@ -333,29 +368,106 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                   </tr>
                 </thead>
                 <tbody>
-                  {seciliHareketler.length === 0 && (
+                  {gunlukHareketler.length === 0 && (
                     <tr>
                       <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>
                         Bu ürün için seçili ayda hareket yok.
                       </td>
                     </tr>
                   )}
-                  {[...seciliHareketler].reverse().map(h => (
-                    <tr key={h.id}>
-                      <td style={{ fontWeight: 600 }}>{tarihFmt(h.tarih)}</td>
-                      <td style={{ textAlign: 'center', color: '#059669', fontWeight: 700 }}>
-                        {h.hareket_turu === 'giris' ? sayi(h.miktar) : '-'}
-                      </td>
-                      <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
-                        {h.hareket_turu === 'cikis' ? sayi(h.miktar) : '-'}
-                      </td>
-                      <td style={{ color: '#94a3b8', fontSize: 12 }}>{h.aciklama || '—'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {!ayKapali && (
-                          <div className="row-action-wrap">
-                            <button className="row-action-btn" onClick={() => setAcikMenu(acikMenu === h.id ? null : h.id)} title="İşlemler">⋮</button>
-                            {acikMenu === h.id && (
-                              <div className="row-action-menu">
+                  {gunlukHareketler.map(g => {
+                    const acik = acikGun === g.key;
+                    return (
+                      <Fragment key={g.key}>
+                        <tr className="daily-summary-row" onClick={() => setAcikGun(acik ? null : g.key)}>
+                          <td style={{ fontWeight: 800 }}>
+                            <span className="daily-toggle">{acik ? '−' : '+'}</span>
+                            {tarihFmt(g.tarih_iso || g.tarih)}
+                          </td>
+                          <td style={{ textAlign: 'center', color: '#059669', fontWeight: 800 }}>
+                            {g.giris > 0 ? sayi(g.giris) : '-'}
+                          </td>
+                          <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 800 }}>
+                            {g.cikis > 0 ? sayi(g.cikis) : '-'}
+                          </td>
+                          <td style={{ color: '#8a928c', fontSize: 12 }}>{g.kayitlar.length} kayıt</td>
+                          <td></td>
+                        </tr>
+                        {acik && g.kayitlar.map(h => (
+                          <tr key={h.id} className="daily-detail-row">
+                            <td className="movement-time-cell"><span>{saatFmt(h) || 'Saat yok'}</span></td>
+                            <td style={{ textAlign: 'center', color: '#059669', fontWeight: 700 }}>
+                              {h.hareket_turu === 'giris' ? sayi(h.miktar) : '-'}
+                            </td>
+                            <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
+                              {h.hareket_turu === 'cikis' ? sayi(h.miktar) : '-'}
+                            </td>
+                            <td style={{ color: '#8a928c', fontSize: 12 }}>{aciklamaFmt(h)}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {!ayKapali && (
+                                <div className="row-action-wrap">
+                                  <button className="row-action-btn" onClick={() => setAcikMenu(acikMenu === h.id ? null : h.id)} title="İşlemler"><MoreVertical size={17} /></button>
+                                  {acikMenu === h.id && (
+                                    <div className="row-action-menu">
+                                      <button onClick={() => duzenleModalAc(h)}>Düzenle</button>
+                                      <button
+                                        className="danger"
+                                        onClick={() => onConfirm?.({
+                                          title: 'Hareket kaydı silinsin mi?',
+                                          message: `${tarihFmt(h.tarih)} tarihli ${h.hareket_turu === 'giris' ? 'giriş' : 'çıkış'} kaydı silinecek.`,
+                                          detail: 'Bu işlem stok hesaplarını etkiler ve geri alınamaz.',
+                                          confirmText: 'Evet, Sil',
+                                          onConfirm: () => silHareket(h.id),
+                                        })}
+                                      >
+                                        Sil
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mobile-movement-list">
+              {gunlukHareketler.length === 0 && (
+                <div className="empty-state">Bu ürün için seçili ayda hareket yok.</div>
+              )}
+              {gunlukHareketler.map(g => {
+                const acik = acikGun === g.key;
+                const tip = g.cikis > 0 && g.giris === 0 ? 'cikis' : g.giris > 0 && g.cikis === 0 ? 'giris' : 'karma';
+                return (
+                  <div key={g.key} className={`mobile-movement-item ${tip}`}>
+                    <button type="button" className="mobile-movement-summary" onClick={() => setAcikGun(acik ? null : g.key)}>
+                      <div>
+                        <div className="mobile-movement-date">{tarihFmt(g.tarih_iso || g.tarih)}</div>
+                        <div className="mobile-movement-note">{g.kayitlar.length} kayıt</div>
+                      </div>
+                      <div className="mobile-movement-day-totals">
+                        {g.giris > 0 && <span className="amount-in"><em>Giriş</em><strong>+{sayi(g.giris)}</strong></span>}
+                        {g.cikis > 0 && <span className="amount-out"><em>Çıkış</em><strong>-{sayi(g.cikis)}</strong></span>}
+                      </div>
+                    </button>
+                    {acik && (
+                      <div className="mobile-movement-details">
+                        {g.kayitlar.map(h => (
+                          <div key={h.id} className="mobile-movement-detail-row">
+                            <div>
+                              <div className="mobile-movement-date">Saat {saatFmt(h) || 'yok'}</div>
+                              <div className="mobile-movement-note">{aciklamaFmt(h)}</div>
+                            </div>
+                            <div className="mobile-movement-amount">
+                              <span>{h.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'}</span>
+                              <strong className={h.hareket_turu === 'giris' ? 'amount-in' : 'amount-out'}>{h.hareket_turu === 'giris' ? '+' : '-'}{sayi(h.miktar)}</strong>
+                            </div>
+                            {!ayKapali && (
+                              <div className="mobile-movement-actions">
                                 <button onClick={() => duzenleModalAc(h)}>Düzenle</button>
                                 <button
                                   className="danger"
@@ -372,48 +484,12 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                               </div>
                             )}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mobile-movement-list">
-              {seciliHareketler.length === 0 && (
-                <div className="empty-state">Bu ürün için seçili ayda hareket yok.</div>
-              )}
-              {[...seciliHareketler].reverse().map(h => (
-                <div key={h.id} className={`mobile-movement-item ${h.hareket_turu === 'giris' ? 'giris' : 'cikis'}`}>
-                  <div className="mobile-movement-main">
-                    <div>
-                      <div className="mobile-movement-date">{tarihFmt(h.tarih)}</div>
-                      <div className="mobile-movement-note">{h.aciklama || 'Açıklama yok'}</div>
-                    </div>
-                    <div className="mobile-movement-amount">
-                      <span>{h.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'}</span>
-                      <strong>{h.hareket_turu === 'giris' ? '+' : '-'}{sayi(h.miktar)}</strong>
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {!ayKapali && (
-                    <div className="mobile-movement-actions">
-                      <button onClick={() => duzenleModalAc(h)}>Düzenle</button>
-                      <button
-                        className="danger"
-                        onClick={() => onConfirm?.({
-                          title: 'Hareket kaydı silinsin mi?',
-                          message: `${tarihFmt(h.tarih)} tarihli ${h.hareket_turu === 'giris' ? 'giriş' : 'çıkış'} kaydı silinecek.`,
-                          detail: 'Bu işlem stok hesaplarını etkiler ve geri alınamaz.',
-                          confirmText: 'Evet, Sil',
-                          onConfirm: () => silHareket(h.id),
-                        })}
-                      >
-                        Sil
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

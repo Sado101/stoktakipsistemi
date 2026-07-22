@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5050/api';
+const BASE = (process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5050/api')).replace(/\/$/, '');
 
 async function req(path, options = {}) {
   const res = await fetch(BASE + path, {

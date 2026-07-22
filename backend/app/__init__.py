@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import timedelta
@@ -28,7 +28,8 @@ def _cors_origins():
 
 def create_app():
     load_dotenv()
-    app = Flask(__name__)
+    frontend_build = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'build'))
+    app = Flask(__name__, static_folder=frontend_build, static_url_path='')
 
     app.secret_key = _required_env('SECRET_KEY')
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -59,6 +60,19 @@ def create_app():
     app.register_blueprint(ciro_bp, url_prefix='/api/ciro')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
+
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        if path.startswith('api/'):
+            return jsonify({'error': 'İstek bulunamadı'}), 404
+        if app.static_folder and path and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        index_path = os.path.join(app.static_folder or '', 'index.html')
+        if os.path.exists(index_path):
+            return send_from_directory(app.static_folder, 'index.html')
+        return jsonify({'error': 'Frontend build bulunamadı. Önce frontend için npm run build çalıştırın.'}), 404
+
     @app.errorhandler(HTTPException)
     def handle_http_error(error):
         return jsonify({'error': error.description or 'İstek işlenemedi'}), error.code
@@ -87,6 +101,8 @@ def _migrate_db():
         "ALTER TABLE subeler ADD COLUMN bloke_bitis DATETIME",
         "ALTER TABLE subeler ADD COLUMN stok_islem_izin BOOLEAN DEFAULT 1 NOT NULL",
         "ALTER TABLE subeler ADD COLUMN rapor_izin BOOLEAN DEFAULT 1 NOT NULL",
+        "ALTER TABLE stok_hareketleri ADD COLUMN olusturma DATETIME",
+        "UPDATE stok_hareketleri SET olusturma = CURRENT_TIMESTAMP WHERE olusturma IS NULL",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
