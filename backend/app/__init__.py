@@ -26,6 +26,19 @@ def _cors_origins():
         raw = 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004'
     return [origin.strip() for origin in raw.split(',') if origin.strip()]
 
+
+def _database_uri(project_root):
+    uri = os.getenv('DATABASE_URL', '').strip()
+    if uri:
+        if uri.startswith('postgres://'):
+            uri = 'postgresql://' + uri[len('postgres://'):]
+        if 'supabase.com' in uri and 'sslmode=' not in uri:
+            separator = '&' if '?' in uri else '?'
+            uri = f'{uri}{separator}sslmode=require'
+        return uri
+
+    return 'sqlite:///' + os.path.join(project_root, 'backend', 'stok_v2.db')
+
 def create_app():
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     load_dotenv(os.path.join(project_root, '.env'))
@@ -38,9 +51,12 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=20)
     app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, '..', 'stok_v2.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = _database_uri(project_root)
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
     app.config['PROPAGATE_EXCEPTIONS'] = False
 
     CORS(app, supports_credentials=True, origins=_cors_origins())
@@ -85,7 +101,8 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        _migrate_db()
+        if db.engine.dialect.name == 'sqlite':
+            _migrate_db()
         _ensure_admin_account()
 
     return app
