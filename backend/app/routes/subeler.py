@@ -12,6 +12,29 @@ import functools
 subeler_bp = Blueprint('subeler', __name__)
 
 
+def _clean_text(value):
+    return str(value or '').strip()
+
+
+def _validate_sube_fields(data, require_password=False):
+    kod = _clean_text(data.get('kod'))
+    isim = _clean_text(data.get('isim'))
+    sifre = _clean_text(data.get('sifre'))
+
+    if not kod or not isim:
+        return None, None, None, bad_request('Şube kodu ve şube adı zorunlu')
+    if len(kod) > 100:
+        return None, None, None, bad_request('Şube kodu en fazla 100 karakter olmalı')
+    if len(isim) > 100:
+        return None, None, None, bad_request('Şube adı en fazla 100 karakter olmalı')
+    if require_password and len(sifre) < 6:
+        return None, None, None, bad_request('Şube şifresi en az 6 karakter olmalı')
+    if sifre and len(sifre) > 100:
+        return None, None, None, bad_request('Şube şifresi en fazla 100 karakter olmalı')
+
+    return kod, isim, sifre, None
+
+
 def admin_required(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
@@ -49,14 +72,20 @@ def get_subeler():
 @subeler_bp.route('/', methods=['POST'])
 @admin_required
 def create_sube():
-    data = request.get_json()
-    if Sube.query.filter_by(kod=data['kod']).first():
-        return jsonify({'error': 'Bu kod zaten kullanılıyor'}), 400
+    data, hata = json_body()
+    if hata:
+        return hata
+
+    kod, isim, sifre, hata = _validate_sube_fields(data, require_password=True)
+    if hata:
+        return hata
+    if Sube.query.filter_by(kod=kod).first():
+        return bad_request('Bu kod zaten kullanılıyor')
 
     sube = Sube(
-        kod=data['kod'],
-        isim=data['isim'],
-        sifre=data.get('sifre', '123456'),
+        kod=kod,
+        isim=isim,
+        sifre=sifre,
         olusturma=datetime.utcnow()
     )
     db.session.add(sube)
@@ -68,9 +97,21 @@ def create_sube():
 @admin_required
 def update_sube(id):
     sube = Sube.query.get_or_404(id)
-    data = request.get_json()
-    sube.kod = data.get('kod', sube.kod)
-    sube.isim = data.get('isim', sube.isim)
+    data, hata = json_body()
+    if hata:
+        return hata
+
+    kod, isim, _, hata = _validate_sube_fields({
+        'kod': data.get('kod', sube.kod),
+        'isim': data.get('isim', sube.isim),
+    })
+    if hata:
+        return hata
+    if Sube.query.filter(Sube.kod == kod, Sube.id != id).first():
+        return bad_request('Bu kod zaten kullanılıyor')
+
+    sube.kod = kod
+    sube.isim = isim
     db.session.commit()
     return jsonify(sube.to_dict())
 
@@ -143,19 +184,31 @@ def update_sube_bilgi(id):
     if hata:
         return hata
     sube = Sube.query.get_or_404(id)
-    data = request.get_json()
+    data, hata = json_body()
+    if hata:
+        return hata
     if 'adres' in data:
-        sube.adres = data['adres']
+        sube.adres = _clean_text(data['adres'])[:250]
     if 'telefon' in data:
-        sube.telefon = data['telefon']
-    if data.get('isim'):
-        sube.isim = data['isim']
-    if data.get('kod'):
-        if Sube.query.filter(Sube.kod == data['kod'], Sube.id != id).first():
-            return jsonify({'error': 'Bu kullanıcı adı zaten kullanılıyor'}), 400
-        sube.kod = data['kod']
+        sube.telefon = _clean_text(data['telefon'])[:30]
+    if data.get('isim') or data.get('kod'):
+        kod, isim, _, hata = _validate_sube_fields({
+            'kod': data.get('kod', sube.kod),
+            'isim': data.get('isim', sube.isim),
+        })
+        if hata:
+            return hata
+        if Sube.query.filter(Sube.kod == kod, Sube.id != id).first():
+            return bad_request('Bu kullanıcı adı zaten kullanılıyor')
+        sube.kod = kod
+        sube.isim = isim
     if data.get('sifre'):
-        sube.sifre = data['sifre']
+        sifre = _clean_text(data['sifre'])
+        if len(sifre) < 6:
+            return bad_request('Şube şifresi en az 6 karakter olmalı')
+        if len(sifre) > 100:
+            return bad_request('Şube şifresi en fazla 100 karakter olmalı')
+        sube.sifre = sifre
     db.session.commit()
     return jsonify(sube.to_dict())
 

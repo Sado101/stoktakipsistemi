@@ -103,6 +103,8 @@ def create_app():
         db.create_all()
         if db.engine.dialect.name == 'sqlite':
             _migrate_db()
+        elif db.engine.dialect.name == 'postgresql':
+            _migrate_postgres_db()
         _ensure_admin_account()
 
     return app
@@ -130,6 +132,20 @@ def _migrate_db():
             except Exception:
                 pass  # Kolon zaten mevcut, atla
 
+
+
+def _migrate_postgres_db():
+    """Canli PostgreSQL tablolarinda geriye uyumlu kolon duzeltmeleri."""
+    migrations = [
+        "ALTER TABLE subeler ALTER COLUMN kod TYPE VARCHAR(100)",
+    ]
+    with db.engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(db.text(sql))
+                conn.commit()
+            except Exception:
+                conn.rollback()
 
 
 def _ensure_admin_account():

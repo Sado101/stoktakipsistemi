@@ -21,7 +21,7 @@ class AdminAyar(db.Model):
 class Sube(db.Model):
     __tablename__ = 'subeler'
     id = db.Column(db.Integer, primary_key=True)
-    kod = db.Column(db.String(20), unique=True, nullable=False)
+    kod = db.Column(db.String(100), unique=True, nullable=False)
     isim = db.Column(db.String(100), nullable=False)
     sifre = db.Column(db.String(100), nullable=False, default='123456')
     adres = db.Column(db.String(250), nullable=True)
