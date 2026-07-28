@@ -28,6 +28,13 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
     ? subeler.filter(s => String(s.id) === secilenSube)
     : subeler;
 
+  const subeEtiketi = (s) => {
+    if (!s?.kod) return s?.isim || '';
+    const kod = String(s.kod);
+    const kisaKod = kod.length > 22 ? `${kod.slice(0, 22)}...` : kod;
+    return `${s.isim} (${kisaKod})`;
+  };
+
   const ara = async () => {
     try {
       const params = {};
@@ -303,7 +310,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                       style={kullanici?.role === 'sube' ? { background: '#f4f1ea', color: '#8a928c' } : {}}
                     >
                       <option value="">Şube Seçin</option>
-                      {subeSecenekleri.map(s => <option key={s.id} value={String(s.id)}>{s.isim} ({s.kod})</option>)}
+                      {subeSecenekleri.map(s => <option key={s.id} value={String(s.id)}>{subeEtiketi(s)}</option>)}
                     </select>
                   </div>
                   <div className="form-group">

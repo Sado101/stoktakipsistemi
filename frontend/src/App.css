@@ -3863,10 +3863,36 @@ tbody tr:hover {
   .product-manager-layout,
   .edit-layout,
   .edit-form-card,
+  .edit-form-card form,
+  .edit-form-card .form-grid,
+  .edit-form-card .form-group,
   .product-barcode-group,
   .product-barcode-input-row {
+    width: 100%;
     min-width: 0;
     max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .edit-form-card {
+    overflow: hidden;
+  }
+
+  .edit-form-card .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .edit-form-card .form-group input,
+  .edit-form-card .form-group select,
+  .edit-form-card .form-group textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .edit-form-card .form-group select {
+    text-overflow: ellipsis;
   }
 
   .product-barcode-group {
@@ -3888,6 +3914,22 @@ tbody tr:hover {
   .product-barcode-input-row button {
     width: 46px;
     min-width: 46px;
+  }
+}
+
+@media (max-width: 480px) {
+  .edit-form-card {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .product-form-title {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .product-form-title .icon-soft-btn {
+    flex: 0 0 34px;
   }
 }
 
