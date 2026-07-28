@@ -2154,10 +2154,21 @@ tbody tr:last-child td { border-bottom: none; }
     grid-template-columns: 1fr;
     gap: 8px;
   }
+  .search-bar,
+  .search-bar > div {
+    min-width: 0;
+    max-width: 100%;
+  }
   .search-bar input,
   .search-bar select {
     width: 100%;
     min-width: 0;
+  }
+  .search-bar .btn,
+  .search-bar button {
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
   }
   .archive-layout {
     display: block !important;
@@ -3849,8 +3860,34 @@ tbody tr:hover {
 }
 
 @media (max-width: 768px) {
+  .product-manager-layout,
+  .edit-layout,
+  .edit-form-card,
+  .product-barcode-group,
+  .product-barcode-input-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .product-barcode-group {
     grid-column: 1;
+  }
+
+  .product-barcode-input-row {
+    grid-template-columns: minmax(0, 1fr) 46px;
+    width: 100%;
+  }
+
+  .product-barcode-input-row input {
+    width: 100%;
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 16px;
+  }
+
+  .product-barcode-input-row button {
+    width: 46px;
+    min-width: 46px;
   }
 }
 
