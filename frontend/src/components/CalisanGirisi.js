@@ -7,6 +7,7 @@ export default function CalisanGirisi({ subeAdi, onGiris, onCikis }) {
   const [pin, setPin] = useState('');
   const [hata, setHata] = useState('');
   const [yukleniyor, setYukleniyor] = useState(false);
+  const [cikiliyor, setCikiliyor] = useState(false);
 
   const giris = async (e) => {
     e.preventDefault();
@@ -20,6 +21,13 @@ export default function CalisanGirisi({ subeAdi, onGiris, onCikis }) {
     } finally {
       setYukleniyor(false);
     }
+  };
+
+  const geriDon = async () => {
+    if (cikiliyor) return;
+    setCikiliyor(true);
+    try { await onCikis(); }
+    finally { setCikiliyor(false); }
   };
 
   return (
@@ -39,7 +47,9 @@ export default function CalisanGirisi({ subeAdi, onGiris, onCikis }) {
         <button className="login-submit" disabled={yukleniyor}>
           <ArrowRight size={20} /> {yukleniyor ? 'Tanınıyor...' : 'Devam Et'}
         </button>
-        <button className="employee-back" type="button" onClick={onCikis}><LogOut size={15} /> Şube girişine dön</button>
+        <button className="employee-back" type="button" onClick={geriDon} disabled={cikiliyor}>
+          <LogOut size={15} /> {cikiliyor ? 'Çıkılıyor...' : 'Şube girişine dön'}
+        </button>
       </form>
     </div>
   );

@@ -99,6 +99,8 @@ export default function App() {
   const [yil, setYil] = useState(now.getFullYear());
   const zamanlayiciRef = useRef(null);
   const sonAktiviteRef = useRef(Date.now());
+  const cikisYapiliyorRef = useRef(false);
+  const calisanYonlendirmeRef = useRef(false);
 
   const yillar = [];
   for (let y = 2024; y <= now.getFullYear() + 1; y++) yillar.push(y);
@@ -151,12 +153,17 @@ export default function App() {
 
   useEffect(() => {
     const calisanGirisineYonlendir = async () => {
+      if (cikisYapiliyorRef.current || calisanYonlendirmeRef.current) return;
+      calisanYonlendirmeRef.current = true;
       try {
         const data = await api.getMe();
+        if (cikisYapiliyorRef.current) return;
         setKullanici(data);
         if (data.role === 'sube') setSecilenSube(String(data.sube_id));
       } catch (e) {
-        setKullanici(null);
+        if (!cikisYapiliyorRef.current) setKullanici(null);
+      } finally {
+        calisanYonlendirmeRef.current = false;
       }
     };
     window.addEventListener('employee-login-required', calisanGirisineYonlendir);
@@ -173,7 +180,9 @@ export default function App() {
     } catch (e) { console.error(e); }
   }, [secilenSube, kullanici]);
 
-  useEffect(() => { if (kullanici) subeleriGetir(); }, [yenile, kullanici]);
+  useEffect(() => {
+    if (kullanici && !kullanici.employee_login_required) subeleriGetir();
+  }, [yenile, kullanici, subeleriGetir]);
 
   const tetikleYenile = () => setYenile(y => y + 1);
 
@@ -188,10 +197,14 @@ export default function App() {
   };
 
   const cikisYap = async () => {
-    try { await api.logout(); } catch (e) {}
+    if (cikisYapiliyorRef.current) return;
+    cikisYapiliyorRef.current = true;
     setOturumMesaji('');
     setKullanici(null);
     setSecilenSube('');
+    setSubeler([]);
+    try { await api.logout(); } catch (e) {}
+    finally { cikisYapiliyorRef.current = false; }
   };
 
   const oturumuZamanAsiminaUgrat = useCallback(async () => {
