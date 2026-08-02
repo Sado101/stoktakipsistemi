@@ -6,9 +6,12 @@ import StokDuzenleme from './components/StokDuzenleme';
 import GelenGiden from './components/GelenGiden';
 import Arsiv from './components/Arsiv';
 import SubeAyarlari from './components/SubeAyarlari';
+import CalisanGirisi from './components/CalisanGirisi';
+import CalisanYonetimi from './components/CalisanYonetimi';
+import IslemGecmisi from './components/IslemGecmisi';
 import BarkodIslem from './components/BarkodIslem';
 import skLogo from './assets/sk-logo.png';
-import { Archive, AlertTriangle, CheckCircle2, ClipboardList, Info, PackagePlus, Repeat2, ScanBarcode, SlidersHorizontal, X, XCircle } from 'lucide-react';
+import { Archive, AlertTriangle, CheckCircle2, ClipboardList, History, Info, PackagePlus, Repeat2, ScanBarcode, SlidersHorizontal, X, XCircle } from 'lucide-react';
 import './App.css';
 
 const SAYFALAR = [
@@ -17,7 +20,8 @@ const SAYFALAR = [
   { key: 'barkod-islem',   label: 'Barkod',     Icon: ScanBarcode },
   { key: 'stok-duzenleme', label: 'Ürünler',    Icon: PackagePlus },
   { key: 'arsiv',          label: 'Arşiv',      Icon: Archive },
-  { key: 'sube-ayarlari',  label: 'Şube Ayarları', Icon: SlidersHorizontal, adminOnly: true },
+  { key: 'sube-ayarlari',  label: 'Şube Ayarları', Icon: SlidersHorizontal },
+  { key: 'islem-gecmisi',  label: 'İşlem Geçmişi', Icon: History, adminOnly: true },
 ];
 
 const AYLAR = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
@@ -143,6 +147,20 @@ export default function App() {
       setYukleniyor(false);
     };
     kontrol();
+  }, []);
+
+  useEffect(() => {
+    const calisanGirisineYonlendir = async () => {
+      try {
+        const data = await api.getMe();
+        setKullanici(data);
+        if (data.role === 'sube') setSecilenSube(String(data.sube_id));
+      } catch (e) {
+        setKullanici(null);
+      }
+    };
+    window.addEventListener('employee-login-required', calisanGirisineYonlendir);
+    return () => window.removeEventListener('employee-login-required', calisanGirisineYonlendir);
   }, []);
 
   const subeleriGetir = useCallback(async () => {
@@ -282,6 +300,10 @@ export default function App() {
 
   if (!kullanici) return <Login onGiris={girisYap} mesaj={oturumMesaji} />;
 
+  if (kullanici.role === 'sube' && kullanici.employee_login_required) {
+    return <CalisanGirisi subeAdi={kullanici.branch_name || kullanici.username} onGiris={girisYap} onCikis={cikisYap} />;
+  }
+
   const gorunenSayfalar = SAYFALAR.filter(s => !s.adminOnly || kullanici.role === 'admin');
   const sayfaLabel = gorunenSayfalar.find(s => s.key === sayfa)?.label || '';
 
@@ -294,7 +316,7 @@ export default function App() {
           <div className="mobile-header-title"> {sayfaLabel}</div>
         </div>
         <div className="mobile-header-right">
-          <span className="mobile-user-badge">{kullanici.username}</span>
+          <span className="mobile-user-badge">{kullanici.role === 'sube' ? `${kullanici.branch_name || ''} · ${kullanici.username}` : kullanici.username}</span>
           <button onClick={cikisYap} style={{
             background: 'rgba(239,68,68,0.2)', border: 'none',
             color: '#fca5a5', borderRadius: 6, padding: '5px 8px',
@@ -339,7 +361,7 @@ export default function App() {
         <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {kullanici.role === 'admin' ? 'Admin' : 'Şube'}
+              {kullanici.role === 'admin' ? 'Admin' : (kullanici.branch_name || 'Şube')}
             </div>
             <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500, marginTop: 2 }}>
               {kullanici.username}
@@ -373,7 +395,7 @@ export default function App() {
             }}>
               <span>
                 {kullanici.role === 'sube'
-                  ? kullanici.username
+                  ? (kullanici.branch_name || kullanici.username)
                   : subeler.find(s => String(s.id) === secilenSube)?.isim || 'Şube'}
               </span>
               <span style={{ color: '#475569', fontSize: 11 }}>Bilgiler →</span>
@@ -421,7 +443,13 @@ export default function App() {
           {sayfa === 'gelen-giden'    && <GelenGiden secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} onConfirm={onayIste} />}
           {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
           {sayfa === 'arsiv'          && <Arsiv secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}
-          {sayfa === 'sube-ayarlari' && kullanici.role === 'admin' && <SubeAyarlari subeler={subeler} onYenile={subeleriGetir} onYeniSube={() => setSubeModal(true)} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'sube-ayarlari' && kullanici.role === 'admin' && <>
+            <SubeAyarlari subeler={subeler} onYenile={subeleriGetir} onYeniSube={() => setSubeModal(true)} onNotify={bildir} onConfirm={onayIste} />
+            <CalisanYonetimi subeId={Number(secilenSube) || null} onNotify={bildir} onConfirm={onayIste} />
+          </>}
+          {sayfa === 'sube-ayarlari' && kullanici.role === 'sube' &&
+            <CalisanYonetimi subeId={kullanici.sube_id} aktifCalisanId={kullanici.employee_id} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'islem-gecmisi' && kullanici.role === 'admin' && <IslemGecmisi secilenSube={secilenSube} onNotify={bildir} />}
         </div>
       </main>
 
