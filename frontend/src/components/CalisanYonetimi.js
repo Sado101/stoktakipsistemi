@@ -58,7 +58,7 @@ export default function CalisanYonetimi({ subeId, aktifCalisanId, onNotify, onCo
     <section className="employee-settings card">
       <div className="employee-settings-head"><div><h2>Şube Kullanıcıları</h2><p>Herkes eşit erişime sahiptir; şifre yalnızca çalışanı tanır.</p></div><UserRound size={24} /></div>
       <form className="employee-add-form" onSubmit={ekle}>
-        <input value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder="Çalışan adı " />
+        <input value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder="Çalışan adı (ör. Sadık)" />
         <input type="password" inputMode="numeric" value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 12) }))} placeholder="Kişisel şifre " />
         <button className="btn btn-primary" disabled={islemde}><Plus size={17} /> Kullanıcı Ekle</button>
       </form>
