@@ -42,6 +42,10 @@ export const api = {
   deleteSube: (id) => req(`/subeler/${id}`, { method: 'DELETE' }),
   getSubeBilgi: (id) => req(`/subeler/${id}/bilgi`),
   updateSubeBilgi: (id, data) => req(`/subeler/${id}/bilgi`, { method: 'PUT', body: JSON.stringify(data) }),
+  getCalisanlar: (id) => req(`/subeler/${id}/calisanlar`),
+  createCalisan: (id, data) => req(`/subeler/${id}/calisanlar`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCalisan: (id, calisanId, data) => req(`/subeler/${id}/calisanlar/${calisanId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCalisan: (id, calisanId) => req(`/subeler/${id}/calisanlar/${calisanId}`, { method: 'DELETE' }),
 
   getUrunler: (params = {}) => { const q = new URLSearchParams(params).toString(); return req(`/urunler/${q ? '?' + q : ''}`); },
   createUrun: (data) => req('/urunler/', { method: 'POST', body: JSON.stringify(data) }),
@@ -69,6 +73,7 @@ export const api = {
   getAdminSettings: () => req('/auth/admin'),
   updateAdminSettings: (data) => req('/auth/admin', { method: 'PUT', body: JSON.stringify(data) }),
   login: (data) => req('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  calisanGiris: (pin) => req('/auth/calisan-giris', { method: 'POST', body: JSON.stringify({ pin }) }),
   logout: () => req('/auth/logout', { method: 'POST' }),
   getMe: () => req('/auth/me'),
 };

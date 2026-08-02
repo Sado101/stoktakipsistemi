@@ -2,6 +2,7 @@ from app import db
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import json
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class AdminAyar(db.Model):
@@ -32,6 +33,7 @@ class Sube(db.Model):
     stok_islem_izin = db.Column(db.Boolean, nullable=False, default=True)
     rapor_izin = db.Column(db.Boolean, nullable=False, default=True)
     urunler = db.relationship('Urun', backref='sube', lazy=True)
+    calisanlar = db.relationship('Calisan', backref='sube', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
         bloke_aktif = bool(self.bloke_bitis and self.bloke_bitis > datetime.utcnow())
@@ -45,6 +47,31 @@ class Sube(db.Model):
             'bloke_aktif': bloke_aktif,
             'stok_islem_izin': bool(self.stok_islem_izin),
             'rapor_izin': bool(self.rapor_izin),
+        }
+
+
+class Calisan(db.Model):
+    __tablename__ = 'calisanlar'
+    id = db.Column(db.Integer, primary_key=True)
+    sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=False, index=True)
+    ad = db.Column(db.String(100), nullable=False)
+    pin_hash = db.Column(db.String(255), nullable=False)
+    aktif = db.Column(db.Boolean, nullable=False, default=True)
+    olusturma = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('sube_id', 'ad', name='uq_calisan_sube_ad'),)
+
+    def set_pin(self, pin):
+        self.pin_hash = generate_password_hash(str(pin))
+
+    def pin_dogru(self, pin):
+        return check_password_hash(self.pin_hash, str(pin))
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'sube_id': self.sube_id, 'ad': self.ad,
+            'aktif': bool(self.aktif),
+            'olusturma': self.olusturma.strftime('%d.%m.%Y') if self.olusturma else '',
         }
 
 class Urun(db.Model):
