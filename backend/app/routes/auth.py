@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from app import db
-from app.models import AdminAyar, Sube
+from app.models import AdminAyar, Sube, Calisan
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
 import functools
@@ -89,6 +89,11 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not session.get('sube_id') and not session.get('is_admin'):
             return jsonify({'error': 'Giriş gerekli'}), 401
+        if session.get('sube_id') and Calisan.query.filter_by(sube_id=session['sube_id'], aktif=True).first():
+            calisan = Calisan.query.filter_by(id=session.get('calisan_id'), sube_id=session['sube_id'], aktif=True).first()
+            if not calisan:
+                session['calisan_id'] = None
+                return jsonify({'error': 'Çalışan şifresi gerekli', 'employee_login_required': True}), 401
         return f(*args, **kwargs)
     return decorated
 
@@ -130,12 +135,44 @@ def login():
         session['is_admin'] = False
         session['sube_id'] = sube.id
         session['username'] = sube.isim
-        return jsonify({'role': 'sube', 'sube_id': sube.id, 'username': sube.isim})
+        session['calisan_id'] = None
+        personel_gerekli = Calisan.query.filter_by(sube_id=sube.id, aktif=True).first() is not None
+        return jsonify({'role': 'sube', 'sube_id': sube.id, 'username': sube.isim,
+                        'branch_name': sube.isim, 'employee_login_required': personel_gerekli})
 
     limited = _record_failed_attempt(rate_key)
     if limited:
         return limited
     return jsonify({'error': 'Kullanıcı adı veya şifre hatalı'}), 401
+
+
+@auth_bp.route('/calisan-giris', methods=['POST'])
+def calisan_giris():
+    sube_id = session.get('sube_id')
+    if not sube_id or session.get('is_admin'):
+        return jsonify({'error': 'Önce şube girişi yapmalısınız'}), 401
+
+    pin = str((request.get_json(silent=True) or {}).get('pin', '')).strip()
+    rate_key = _rate_key('employee-login', sube_id)
+    blocked = _rate_limited_response(rate_key)
+    if blocked:
+        return blocked
+
+    calisanlar = Calisan.query.filter_by(sube_id=sube_id, aktif=True).all()
+    calisan = next((c for c in calisanlar if c.pin_dogru(pin)), None)
+    if not calisan:
+        limited = _record_failed_attempt(rate_key)
+        if limited:
+            return limited
+        return jsonify({'error': 'Çalışan şifresi hatalı'}), 401
+
+    _clear_failed_attempts(rate_key)
+    sube = Sube.query.get(sube_id)
+    session['calisan_id'] = calisan.id
+    session['username'] = calisan.ad
+    return jsonify({'role': 'sube', 'sube_id': sube_id, 'username': calisan.ad,
+                    'employee_id': calisan.id, 'branch_name': sube.isim,
+                    'employee_login_required': False})
 
 
 @auth_bp.route('/kilidi-ac', methods=['POST'])
@@ -242,5 +279,11 @@ def me():
             session.clear()
             return hata
         if sube:
-            return jsonify({'role': 'sube', 'sube_id': sube_id, 'username': sube.isim})
+            calisan = Calisan.query.filter_by(id=session.get('calisan_id'), sube_id=sube_id, aktif=True).first() if session.get('calisan_id') else None
+            personel_gerekli = Calisan.query.filter_by(sube_id=sube_id, aktif=True).first() is not None and not calisan
+            return jsonify({'role': 'sube', 'sube_id': sube_id,
+                            'username': calisan.ad if calisan else sube.isim,
+                            'employee_id': calisan.id if calisan else None,
+                            'branch_name': sube.isim,
+                            'employee_login_required': personel_gerekli})
     return jsonify({'error': 'Giriş gerekli'}), 401

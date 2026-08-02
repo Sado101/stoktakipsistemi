@@ -141,7 +141,8 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
           hareket_turu: item.hareket_turu,
           miktar: item.miktar,
           tarih: item.tarih,
-          aciklama: `Barkod sayfası ile ${item.hareket_turu === 'giris' ? 'giriş' : 'çıkış'}`,
+          aciklama: '',
+          islem_kaynagi: 'barkod',
         });
       }
       setListe([]);

@@ -123,6 +123,8 @@ def _migrate_db():
         "ALTER TABLE subeler ADD COLUMN rapor_izin BOOLEAN DEFAULT 1 NOT NULL",
         "ALTER TABLE stok_hareketleri ADD COLUMN olusturma DATETIME",
         "UPDATE stok_hareketleri SET olusturma = CURRENT_TIMESTAMP WHERE olusturma IS NULL",
+        "ALTER TABLE stok_hareketleri ADD COLUMN islemi_yapan VARCHAR(100)",
+        "ALTER TABLE stok_hareketleri ADD COLUMN islem_kaynagi VARCHAR(30)",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -138,6 +140,8 @@ def _migrate_postgres_db():
     """Canli PostgreSQL tablolarinda geriye uyumlu kolon duzeltmeleri."""
     migrations = [
         "ALTER TABLE subeler ALTER COLUMN kod TYPE VARCHAR(100)",
+        "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS islemi_yapan VARCHAR(100)",
+        "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS islem_kaynagi VARCHAR(30)",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:

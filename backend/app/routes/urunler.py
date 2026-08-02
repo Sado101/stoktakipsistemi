@@ -4,6 +4,7 @@ from app.models import Urun, Sube, StokHareketi
 from app.routes.auth import login_required
 from app.routes.permissions import izinli_sube_id, stok_islem_izni
 from app.utils.validation import json_body, parse_float, parse_int, require_fields, bad_request
+from app.utils.audit import islem_kaydet
 
 urunler_bp = Blueprint('urunler', __name__)
 
@@ -96,6 +97,7 @@ def create_urun():
         devreden_stok=devreden_stok
     )
     db.session.add(urun)
+    islem_kaydet(sube_id, 'Ürün eklendi', 'Ürün', f'{ad} · Barkod: {urun_id} · Devreden stok: {devreden_stok:g}')
     db.session.commit()
     return jsonify(urun.to_dict()), 201
 
@@ -109,6 +111,7 @@ def update_urun(id):
         return hata
 
     hedef_sube_id = urun.sube_id
+    eski_ozet = f'{urun.ad} · Barkod: {urun.urun_id} · Stok: {urun.devreden_stok:g}'
     if 'sube_id' in data:
         hedef_sube_id, hata = parse_int(data.get('sube_id'), 'sube_id', required=True, min_value=1)
         if hata:
@@ -151,6 +154,8 @@ def update_urun(id):
             return hata
         urun.devreden_stok = devreden_stok
 
+    yeni_ozet = f'{urun.ad} · Barkod: {urun.urun_id} · Stok: {urun.devreden_stok:g}'
+    islem_kaydet(urun.sube_id, 'Ürün güncellendi', 'Ürün', f'{eski_ozet} → {yeni_ozet}')
     db.session.commit()
     return jsonify(urun.to_dict())
 
@@ -162,6 +167,7 @@ def delete_urun(id):
     engel = stok_islem_izni(urun.sube_id)
     if engel:
         return engel
+    islem_kaydet(urun.sube_id, 'Ürün silindi', 'Ürün', f'{urun.ad} · Barkod: {urun.urun_id}')
     StokHareketi.query.filter_by(urun_id=id).delete()
     db.session.delete(urun)
     db.session.commit()

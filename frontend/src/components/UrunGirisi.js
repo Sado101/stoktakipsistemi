@@ -80,8 +80,8 @@ export default function UrunGirisi({ subeler, secilenSube, onKayit, kullanici, o
 </select>
             </div>
             <div className="form-group">
-              <label>Devreden Stok</label>
-              <input name="devreden_stok" type="number" step="0.01" min="0" value={form.devreden_stok} onChange={set} placeholder="Geçen aydan kalan" inputMode="decimal" />
+              <label>Başlangıç Devreden Stoku</label>
+              <input name="devreden_stok" type="number" step="0.01" min="0" value={form.devreden_stok} onChange={set} placeholder="Ürün ilk eklenirken eldeki stok" inputMode="decimal" />
             </div>
           </div>
           <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
@@ -107,7 +107,6 @@ export default function UrunGirisi({ subeler, secilenSube, onKayit, kullanici, o
     </div>
   );
 }
-
 
 
 

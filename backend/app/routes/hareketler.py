@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify, send_file, session
 from app import db
-from app.models import StokHareketi, Urun, AylikArsiv, Sube
+from app.models import StokHareketi, Urun, AylikArsiv, Sube, IslemKaydi
 from app.routes.ciro import AylikCiro
-from app.routes.auth import login_required
+from app.routes.auth import login_required, admin_required
+from app.utils.audit import aktif_kullanici_adi, islem_kaydet
 from app.routes.permissions import izinli_sube_id, rapor_izni, stok_islem_izni
 from app.utils.excel_export import build_archive_workbook
 from app.utils.validation import json_body, parse_float, parse_int, parse_iso_date, parse_month_year, require_fields
@@ -89,9 +90,13 @@ def create_hareket():
         hareket_turu=hareket_turu,
         miktar=miktar,
         tarih=tarih,
-        aciklama=data.get('aciklama', '')
+        aciklama=data.get('aciklama', ''),
+        islemi_yapan=aktif_kullanici_adi(),
+        islem_kaynagi=str(data.get('islem_kaynagi', 'manuel'))[:30]
     )
     db.session.add(hareket)
+    islem_kaydet(urun.sube_id, 'Stok girişi' if hareket_turu == 'giris' else 'Stok çıkışı', 'Stok hareketi',
+                 f'{urun.ad} · {miktar:g} adet')
     db.session.commit()
     return jsonify(hareket.to_dict()), 201
 
@@ -103,6 +108,9 @@ def delete_hareket(id):
         engel = stok_islem_izni(hareket.urun.sube_id)
         if engel:
             return engel
+    sube_id = hareket.urun.sube_id if hareket.urun else None
+    detay = f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet'
+    islem_kaydet(sube_id, 'Hareket silindi', 'Stok hareketi', detay)
     db.session.delete(hareket)
     db.session.commit()
     return jsonify({'message': 'Silindi'})
@@ -152,8 +160,23 @@ def update_hareket(id):
     if 'aciklama' in data:
         hareket.aciklama = data.get('aciklama', '')
 
+    hareket.islemi_yapan = aktif_kullanici_adi()
+    islem_kaydet(hareket.urun.sube_id if hareket.urun else None, 'Hareket güncellendi', 'Stok hareketi',
+                 f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet')
     db.session.commit()
     return jsonify(hareket.to_dict())
+
+
+@hareketler_bp.route('/islem-gecmisi', methods=['GET'])
+@admin_required
+def get_islem_gecmisi():
+    query = IslemKaydi.query
+    sube_id, hata = parse_int(request.args.get('sube_id'), 'sube_id', min_value=1)
+    if hata:
+        return hata
+    if sube_id:
+        query = query.filter_by(sube_id=sube_id)
+    return jsonify([k.to_dict() for k in query.order_by(IslemKaydi.olusturma.desc(), IslemKaydi.id.desc()).limit(500).all()])
 
 @hareketler_bp.route('/pivot', methods=['GET'])
 @login_required
@@ -225,12 +248,13 @@ def get_pivot():
         toplam_cikis = sum(
             pivot[t].get(uid, {}).get('cikis', 0) for t in tum_gunler
         )
+        devreden, _, _, _ = u.donem_stoklari(ay, yil)
         urun_ozet[str(uid)] = {
-            'devreden': u.devreden_stok,
-            'toplam_stok': u.devreden_stok + toplam_giris,
+            'devreden': devreden,
+            'toplam_stok': devreden + toplam_giris,
             'gelen_urun': toplam_giris,
             'toplam_cikis': toplam_cikis,
-            'guncel_stok': u.devreden_stok + toplam_giris - toplam_cikis
+            'guncel_stok': devreden + toplam_giris - toplam_cikis
         }
 
     return jsonify({

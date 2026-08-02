@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from app import db
-from app.models import Sube, Urun, StokHareketi, AylikArsiv
+from app.models import Sube, Urun, StokHareketi, AylikArsiv, Calisan
 from app.routes.ciro import AylikCiro
 from app.routes.auth import login_required
 from app.routes.permissions import izinli_sube_id
@@ -42,6 +42,104 @@ def admin_required(f):
             return jsonify({'error': 'Bu işlem için admin girişi gerekli'}), 403
         return f(*args, **kwargs)
     return decorated
+
+
+def _calisan_yonetebilir(id):
+    if session.get('is_admin'):
+        return None
+    if session.get('sube_id') != id:
+        return jsonify({'error': 'Bu şubeye erişim yetkiniz yok'}), 403
+    # İlk çalışan şube hesabıyla eklenebilir; sonrasında kişisel PIN zorunludur.
+    if Calisan.query.filter_by(sube_id=id).first() and not session.get('calisan_id'):
+        return jsonify({'error': 'Çalışan şifresi gerekli'}), 401
+    return None
+
+
+def _pin_hatasi(pin):
+    if not pin.isdigit() or not 2 <= len(pin) <= 12:
+        return bad_request('Çalışan şifresi 2-12 haneli ve yalnızca rakamlardan oluşmalı')
+    return None
+
+
+@subeler_bp.route('/<int:id>/calisanlar', methods=['GET'])
+def get_calisanlar(id):
+    hata = _calisan_yonetebilir(id)
+    if hata:
+        return hata
+    return jsonify([c.to_dict() for c in Calisan.query.filter_by(sube_id=id).order_by(Calisan.ad).all()])
+
+
+@subeler_bp.route('/<int:id>/calisanlar', methods=['POST'])
+def create_calisan(id):
+    hata = _calisan_yonetebilir(id)
+    if hata:
+        return hata
+    Sube.query.get_or_404(id)
+    data, hata = json_body()
+    if hata:
+        return hata
+    ad = _clean_text(data.get('ad'))
+    pin = _clean_text(data.get('pin'))
+    if not ad or len(ad) > 100:
+        return bad_request('Çalışan adı 1-100 karakter olmalı')
+    hata = _pin_hatasi(pin)
+    if hata:
+        return hata
+    if Calisan.query.filter_by(sube_id=id, ad=ad).first():
+        return bad_request('Bu isimde bir çalışan zaten var')
+    if any(c.pin_dogru(pin) for c in Calisan.query.filter_by(sube_id=id).all()):
+        return bad_request('Bu kişisel şifre başka bir çalışan tarafından kullanılıyor')
+    calisan = Calisan(sube_id=id, ad=ad, aktif=True)
+    calisan.set_pin(pin)
+    db.session.add(calisan)
+    db.session.commit()
+    return jsonify(calisan.to_dict()), 201
+
+
+@subeler_bp.route('/<int:id>/calisanlar/<int:calisan_id>', methods=['PUT'])
+def update_calisan(id, calisan_id):
+    hata = _calisan_yonetebilir(id)
+    if hata:
+        return hata
+    calisan = Calisan.query.filter_by(id=calisan_id, sube_id=id).first_or_404()
+    data, hata = json_body()
+    if hata:
+        return hata
+    if 'ad' in data:
+        ad = _clean_text(data['ad'])
+        if not ad or len(ad) > 100:
+            return bad_request('Çalışan adı 1-100 karakter olmalı')
+        ayni = Calisan.query.filter(Calisan.sube_id == id, Calisan.ad == ad, Calisan.id != calisan.id).first()
+        if ayni:
+            return bad_request('Bu isimde bir çalışan zaten var')
+        calisan.ad = ad
+    if 'aktif' in data:
+        if calisan.id == session.get('calisan_id') and not bool(data['aktif']):
+            return bad_request('Aktif olarak kullandığınız çalışanı pasif yapamazsınız')
+        calisan.aktif = bool(data['aktif'])
+    if data.get('pin'):
+        pin = _clean_text(data['pin'])
+        hata = _pin_hatasi(pin)
+        if hata:
+            return hata
+        if any(c.id != calisan.id and c.pin_dogru(pin) for c in Calisan.query.filter_by(sube_id=id).all()):
+            return bad_request('Bu kişisel şifre başka bir çalışan tarafından kullanılıyor')
+        calisan.set_pin(pin)
+    db.session.commit()
+    return jsonify(calisan.to_dict())
+
+
+@subeler_bp.route('/<int:id>/calisanlar/<int:calisan_id>', methods=['DELETE'])
+def delete_calisan(id, calisan_id):
+    hata = _calisan_yonetebilir(id)
+    if hata:
+        return hata
+    calisan = Calisan.query.filter_by(id=calisan_id, sube_id=id).first_or_404()
+    if session.get('calisan_id') == calisan.id:
+        return bad_request('Aktif olarak kullandığınız çalışanı silemezsiniz')
+    db.session.delete(calisan)
+    db.session.commit()
+    return jsonify({'message': 'Çalışan silindi'})
 
 
 @subeler_bp.route('/', methods=['GET'])

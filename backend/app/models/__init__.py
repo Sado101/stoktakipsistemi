@@ -1,7 +1,8 @@
 from app import db
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 import json
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class AdminAyar(db.Model):
@@ -32,6 +33,7 @@ class Sube(db.Model):
     stok_islem_izin = db.Column(db.Boolean, nullable=False, default=True)
     rapor_izin = db.Column(db.Boolean, nullable=False, default=True)
     urunler = db.relationship('Urun', backref='sube', lazy=True)
+    calisanlar = db.relationship('Calisan', backref='sube', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
         bloke_aktif = bool(self.bloke_bitis and self.bloke_bitis > datetime.utcnow())
@@ -47,6 +49,31 @@ class Sube(db.Model):
             'rapor_izin': bool(self.rapor_izin),
         }
 
+
+class Calisan(db.Model):
+    __tablename__ = 'calisanlar'
+    id = db.Column(db.Integer, primary_key=True)
+    sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=False, index=True)
+    ad = db.Column(db.String(100), nullable=False)
+    pin_hash = db.Column(db.String(255), nullable=False)
+    aktif = db.Column(db.Boolean, nullable=False, default=True)
+    olusturma = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('sube_id', 'ad', name='uq_calisan_sube_ad'),)
+
+    def set_pin(self, pin):
+        self.pin_hash = generate_password_hash(str(pin))
+
+    def pin_dogru(self, pin):
+        return check_password_hash(self.pin_hash, str(pin))
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'sube_id': self.sube_id, 'ad': self.ad,
+            'aktif': bool(self.aktif),
+            'olusturma': self.olusturma.strftime('%d.%m.%Y') if self.olusturma else '',
+        }
+
 class Urun(db.Model):
     __tablename__ = 'urunler'
     id = db.Column(db.Integer, primary_key=True)
@@ -57,6 +84,30 @@ class Urun(db.Model):
     sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=False)
     devreden_stok = db.Column(db.Float, nullable=False, default=0.0)
     hareketler = db.relationship('StokHareketi', backref='urun', lazy=True)
+
+    def donem_stoklari(self, ay, yil):
+        """Dönem devredeni, o aydan önceki bütün hareketlerin sonucudur."""
+        ay, yil = int(ay), int(yil)
+        baslangic = date(yil, ay, 1)
+        bitis = date(yil + 1, 1, 1) if ay == 12 else date(yil, ay + 1, 1)
+
+        def toplam(hareket_turu, once=False):
+            query = db.session.query(db.func.coalesce(db.func.sum(StokHareketi.miktar), 0)).filter(
+                StokHareketi.urun_id == self.id,
+                StokHareketi.hareket_turu == hareket_turu,
+            )
+            if once:
+                query = query.filter(StokHareketi.tarih < baslangic)
+            else:
+                query = query.filter(StokHareketi.tarih >= baslangic, StokHareketi.tarih < bitis)
+            return float(query.scalar() or 0)
+
+        onceki_giris = toplam('giris', once=True)
+        onceki_cikis = toplam('cikis', once=True)
+        devreden = float(self.devreden_stok or 0) + onceki_giris - onceki_cikis
+        giris = toplam('giris')
+        cikis = toplam('cikis')
+        return devreden, giris, cikis, devreden + giris - cikis
 
     def to_dict(self, ay=None, yil=None):
         from sqlalchemy import func, extract
@@ -69,17 +120,12 @@ class Urun(db.Model):
             StokHareketi.hareket_turu == 'cikis'
         )
         if ay and yil:
-            query_giris = query_giris.filter(
-                extract('month', StokHareketi.tarih) == int(ay),
-                extract('year', StokHareketi.tarih) == int(yil)
-            )
-            query_cikis = query_cikis.filter(
-                extract('month', StokHareketi.tarih) == int(ay),
-                extract('year', StokHareketi.tarih) == int(yil)
-            )
-        gelen = query_giris.scalar()
-        giden = query_cikis.scalar()
-        guncel = self.devreden_stok + gelen - giden
+            devreden, gelen, giden, guncel = self.donem_stoklari(ay, yil)
+        else:
+            gelen = float(query_giris.scalar() or 0)
+            giden = float(query_cikis.scalar() or 0)
+            devreden = float(self.devreden_stok or 0)
+            guncel = devreden + gelen - giden
         return {
             'id': self.id,
             'urun_id': self.urun_id,
@@ -88,7 +134,7 @@ class Urun(db.Model):
             'kategori': self.kategori,
             'sube_id': self.sube_id,
             'sube_isim': self.sube.isim if self.sube else '',
-            'devreden_stok': self.devreden_stok,
+            'devreden_stok': float(devreden),
             'gelen': float(gelen),
             'giden': float(giden),
             'guncel_stok': float(guncel),
@@ -103,6 +149,8 @@ class StokHareketi(db.Model):
     miktar = db.Column(db.Float, nullable=False)
     tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     aciklama = db.Column(db.String(250))
+    islemi_yapan = db.Column(db.String(100), nullable=True)
+    islem_kaynagi = db.Column(db.String(30), nullable=True)
     olusturma = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
 
     def to_dict(self):
@@ -120,7 +168,35 @@ class StokHareketi(db.Model):
             'tarih_iso': self.tarih.strftime('%Y-%m-%d'),
             'saat': yerel_olusturma.strftime('%H:%M') if yerel_olusturma else '',
             'olusturma': yerel_olusturma.strftime('%d.%m.%Y %H:%M') if yerel_olusturma else '',
-            'aciklama': self.aciklama
+            'aciklama': self.aciklama,
+            'islemi_yapan': self.islemi_yapan or 'Eski kayıt',
+            'islem_kaynagi': self.islem_kaynagi or '',
+        }
+
+
+class IslemKaydi(db.Model):
+    __tablename__ = 'islem_kayitlari'
+    id = db.Column(db.Integer, primary_key=True)
+    sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=True, index=True)
+    islemi_yapan = db.Column(db.String(100), nullable=False)
+    islem = db.Column(db.String(50), nullable=False)
+    varlik = db.Column(db.String(50), nullable=False)
+    detay = db.Column(db.String(500), nullable=True)
+    olusturma = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    def to_dict(self):
+        zaman = self.olusturma
+        if zaman and zaman.tzinfo is None:
+            zaman = zaman.replace(tzinfo=timezone.utc)
+        yerel = zaman.astimezone(ZoneInfo('Europe/Istanbul')) if zaman else None
+        sube = db.session.get(Sube, self.sube_id) if self.sube_id else None
+        return {
+            'id': self.id, 'sube_id': self.sube_id,
+            'sube_isim': sube.isim if sube else 'Genel',
+            'islemi_yapan': self.islemi_yapan, 'islem': self.islem,
+            'varlik': self.varlik, 'detay': self.detay or '',
+            'tarih': yerel.strftime('%d.%m.%Y') if yerel else '',
+            'saat': yerel.strftime('%H:%M') if yerel else '',
         }
 
 class AylikArsiv(db.Model):

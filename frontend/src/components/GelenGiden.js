@@ -58,11 +58,7 @@ function saatFmt(h) {
 }
 
 function aciklamaFmt(h) {
-  const varsayilan = h?.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış';
-  const metin = String(h?.aciklama || '').trim();
-  if (!metin) return varsayilan;
-  if (metin.toLowerCase().startsWith('barkod sayfası ile')) return varsayilan;
-  return metin;
+  return h?.islemi_yapan || 'Eski kayıt';
 }
 
 function kategoriBilgi(key) {

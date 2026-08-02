@@ -34,7 +34,7 @@ KATEGORI_ADLARI = {
 
 
 def build_archive_workbook(ay, yil, sube, urunler, hareketler, ciro_kayit, rapor_turu="tam"):
-    product_rows = [_product_row(u, hareketler) for u in urunler]
+    product_rows = [_product_row(u, hareketler, ay, yil) for u in urunler]
     category_rows = _category_rows(product_rows)
     total_ciro = float(ciro_kayit.ciro) if ciro_kayit else 0
     adisyon = int(ciro_kayit.adisyon) if ciro_kayit else 0
@@ -77,11 +77,11 @@ def build_archive_workbook(ay, yil, sube, urunler, hareketler, ciro_kayit, rapor
     return _xlsx_package(sheets)
 
 
-def _product_row(urun, all_hareketler):
+def _product_row(urun, all_hareketler, ay, yil):
     movements = [h for h in all_hareketler if h.urun_id == urun.id]
     giris = sum(float(h.miktar) for h in movements if h.hareket_turu == "giris")
     cikis = sum(float(h.miktar) for h in movements if h.hareket_turu == "cikis")
-    devreden = float(urun.devreden_stok or 0)
+    devreden, _, _, _ = urun.donem_stoklari(ay, yil)
     fiyat = float(urun.fiyat or 0)
     guncel = devreden + giris - cikis
     latest = sorted(movements, key=lambda h: (h.tarih, h.id), reverse=True)

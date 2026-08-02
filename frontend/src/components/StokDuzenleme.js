@@ -314,7 +314,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Devreden Stok</label>
+                    <label>Başlangıç Devreden Stoku</label>
                     <input type="number" step="0.01" min="0" value={form.devreden_stok ?? ''} onChange={e => setForm(f => ({ ...f, devreden_stok: e.target.value }))} inputMode="decimal" />
                   </div>
                 </div>
@@ -361,7 +361,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                             <th style={{ padding: '7px 10px', textAlign: 'left', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Tarih</th>
                             <th style={{ padding: '7px 10px', textAlign: 'center', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Tür</th>
                             <th style={{ padding: '7px 10px', textAlign: 'right', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Miktar</th>
-                            <th style={{ padding: '7px 10px', textAlign: 'left', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Açıklama</th>
+                            <th style={{ padding: '7px 10px', textAlign: 'left', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>İşlemi Yapan</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -374,7 +374,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                                   : <span style={{ color: '#dc2626', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}><ArrowDown size={14} /> Çıkış</span>}
                               </td>
                               <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 800 }}>{h.miktar}</td>
-                              <td style={{ padding: '7px 10px', color: '#8a928c', fontSize: 12 }}>{h.aciklama || '-'}</td>
+                              <td style={{ padding: '7px 10px', color: '#526559', fontSize: 12, fontWeight: 700 }}>{h.islemi_yapan || 'Eski kayıt'}</td>
                             </tr>
                           ))}
                         </tbody>
