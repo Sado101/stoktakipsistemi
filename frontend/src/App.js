@@ -149,6 +149,20 @@ export default function App() {
     kontrol();
   }, []);
 
+  useEffect(() => {
+    const calisanGirisineYonlendir = async () => {
+      try {
+        const data = await api.getMe();
+        setKullanici(data);
+        if (data.role === 'sube') setSecilenSube(String(data.sube_id));
+      } catch (e) {
+        setKullanici(null);
+      }
+    };
+    window.addEventListener('employee-login-required', calisanGirisineYonlendir);
+    return () => window.removeEventListener('employee-login-required', calisanGirisineYonlendir);
+  }, []);
+
   const subeleriGetir = useCallback(async () => {
     try {
       const data = await api.getSubeler();
@@ -168,7 +182,9 @@ export default function App() {
     sonAktiviteRef.current = Date.now();
     setKullanici(data);
     if (data.role === 'sube') setSecilenSube(String(data.sube_id));
-    if (data.role !== 'admin' && SAYFALAR.find(s => s.key === sayfa)?.adminOnly) setSayfa('stok-bilgisi');
+    if (data.role !== 'admin' && SAYFALAR.find(s => s.key === sayfa)?.adminOnly) {
+      setSayfa('stok-bilgisi');
+    }
   };
 
   const cikisYap = async () => {

@@ -8,6 +8,9 @@ async function req(path, options = {}) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (err.employee_login_required && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('employee-login-required'));
+    }
     throw new Error(err.error || 'Bir hata oluştu');
   }
   return res.json();
