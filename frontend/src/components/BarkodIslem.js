@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   Keyboard,
+  FlipHorizontal2,
   PackageCheck,
   ScanBarcode,
   Send,
@@ -39,6 +40,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
   const [aktariliyor, setAktariliyor] = useState(false);
   const [kameraAcik, setKameraAcik] = useState(false);
   const [kameraMesaji, setKameraMesaji] = useState('');
+  const [kameraTers, setKameraTers] = useState(false);
   const videoRef = useRef(null);
   const miktarRef = useRef(null);
   const scannerControlsRef = useRef(null);
@@ -273,15 +275,20 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
                 <Camera size={17} /> Kamera ile Tara
               </button>
               {kameraAcik && (
-                <button type="button" className="btn btn-danger" onClick={kamerayiKapat}>
-                  <X size={17} /> Kamerayı Kapat
-                </button>
+                <>
+                  <button type="button" className="btn btn-secondary" onClick={() => setKameraTers(v => !v)}>
+                    <FlipHorizontal2 size={17} /> Görüntüyü Çevir
+                  </button>
+                  <button type="button" className="btn btn-danger" onClick={kamerayiKapat}>
+                    <X size={17} /> Kamerayı Kapat
+                  </button>
+                </>
               )}
             </div>
 
             {kameraAcik && (
               <div className="barcode-camera-box">
-                <video ref={videoRef} muted playsInline />
+                <video ref={videoRef} muted playsInline style={{ transform: kameraTers ? 'scaleX(-1)' : 'none' }} />
                 <div className="barcode-camera-frame" />
                 <div className="barcode-camera-message">{kameraMesaji}</div>
               </div>
