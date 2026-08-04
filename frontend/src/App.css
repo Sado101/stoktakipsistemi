@@ -3810,25 +3810,6 @@ tbody tr:hover {
   display: block;
 }
 
-.product-barcode-camera-flip {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.72);
-  color: #fff;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .product-barcode-camera-line {
   position: absolute;
   top: 50%;

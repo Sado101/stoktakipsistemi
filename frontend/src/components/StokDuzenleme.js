@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { BrowserMultiFormatOneDReader } from '@zxing/browser';
 import { api } from '../api';
 import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
-import { ArrowDown, ArrowUp, Camera, FlipHorizontal2, MousePointer2, PackagePlus, Pencil, Save, Search, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Camera, MousePointer2, PackagePlus, Pencil, Save, Search, Trash2, X } from 'lucide-react';
 
 const KAT = {
   ambalaj: 'Ambalaj', icecek: 'İçecek', sos: 'Sos', et: 'Et',
@@ -28,7 +28,6 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   const [yukleniyor, setYukleniyor] = useState(false);
   const [hareketler, setHareketler] = useState([]);
   const [kameraAcik, setKameraAcik] = useState(false);
-  const [kameraTers, setKameraTers] = useState(false);
   const videoRef = useRef(null);
   const scannerControlsRef = useRef(null);
   const scanningRef = useRef(false);
@@ -287,13 +286,10 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                     </div>
                     {kameraAcik && (
                       <div className="product-barcode-camera-box">
-                        <video ref={videoRef} muted playsInline style={{ transform: kameraTers ? 'scaleX(-1)' : 'none' }} />
+                        <video ref={videoRef} muted playsInline />
                         <div className="product-barcode-camera-line" />
                         <button type="button" onClick={kamerayiKapat} className="product-barcode-camera-close">
                           <X size={16} />
-                        </button>
-                        <button type="button" onClick={() => setKameraTers(v => !v)} className="product-barcode-camera-flip">
-                          <FlipHorizontal2 size={15} /> Görüntüyü Çevir
                         </button>
                       </div>
                     )}
