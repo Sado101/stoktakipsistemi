@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BrowserMultiFormatOneDReader } from '@zxing/browser';
 import { api } from '../api';
 import {
   Camera,
@@ -15,6 +15,14 @@ import {
 } from 'lucide-react';
 
 const AYLAR = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const HIZLI_KAMERA_KISITLARI = {
+  video: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 30 },
+  },
+};
 
 function sayi(value) {
   return Number(value || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
@@ -191,12 +199,17 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     if (!videoRef.current) return;
 
     scanningRef.current = true;
-    setKameraMesaji('Barkodu kameraya gösterin.');
+    setKameraMesaji('Barkodu yatay tutup çerçeveyi doldurun.');
 
     try {
-      const reader = new BrowserMultiFormatReader();
+      // Ürün barkodlarında yalnızca 1D formatları arayıp varsayılan
+      // 500 ms tarama beklemesini düşürmek okumayı belirgin hızlandırır.
+      const reader = new BrowserMultiFormatOneDReader(undefined, {
+        delayBetweenScanAttempts: 60,
+        delayBetweenScanSuccess: 300,
+      });
       scannerControlsRef.current = await reader.decodeFromConstraints(
-        { video: { facingMode: { ideal: 'environment' } } },
+        HIZLI_KAMERA_KISITLARI,
         videoRef.current,
         (result) => {
           if (!result || !scanningRef.current) return;
