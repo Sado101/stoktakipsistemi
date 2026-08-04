@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BrowserMultiFormatOneDReader } from '@zxing/browser';
 import { api } from '../api';
+import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
 import { ArrowDown, ArrowUp, Camera, FlipHorizontal2, MousePointer2, PackagePlus, Pencil, Save, Search, Trash2, X } from 'lucide-react';
 
 const KAT = {
@@ -115,6 +116,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
     }
 
     try {
+      barkodSesiniHazirla();
       setKameraAcik(true);
       window.setTimeout(() => barkodTara(), 0);
     } catch (e) {
@@ -137,6 +139,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
         (result) => {
           if (!result || !scanningRef.current) return;
           const kod = result.getText();
+          basariliBarkodSesiCal();
           setForm(f => ({ ...f, urun_id: kod }));
           kamerayiKapat();
           onNotify?.('success', 'Barkod alanı dolduruldu.');

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMultiFormatOneDReader } from '@zxing/browser';
 import { api } from '../api';
+import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
 import {
   Camera,
   ChevronDown,
@@ -185,6 +186,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     }
 
     try {
+      barkodSesiniHazirla();
       setKameraAcik(true);
       window.setTimeout(() => barkodTara(), 0);
     } catch (e) {
@@ -209,6 +211,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
         (result) => {
           if (!result || !scanningRef.current) return;
           const kod = result.getText();
+          basariliBarkodSesiCal();
           kamerayiKapat();
           barkoduSec(kod);
         }
