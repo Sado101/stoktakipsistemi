@@ -3461,27 +3461,17 @@ tbody tr:hover {
   display: block;
 }
 
-.barcode-camera-frame {
+.barcode-camera-line {
   position: absolute;
-  inset: 24% 12%;
-  border: 2px solid rgba(255, 255, 255, 0.82);
-  border-radius: 16px;
-  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-}
-
-.barcode-camera-message {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  padding: 9px 12px;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #213227;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .barcode-found-card {
@@ -3839,27 +3829,17 @@ tbody tr:hover {
   cursor: pointer;
 }
 
-.product-barcode-camera-frame {
+.product-barcode-camera-line {
   position: absolute;
-  inset: 24% 12%;
-  border: 2px solid rgba(255, 255, 255, 0.86);
-  border-radius: 14px;
-  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-}
-
-.product-barcode-camera-message {
-  position: absolute;
-  left: 12px;
-  right: 52px;
-  bottom: 12px;
-  padding: 8px 10px;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.93);
-  color: #213227;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .product-barcode-camera-close {

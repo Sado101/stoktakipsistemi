@@ -47,7 +47,6 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
   const [liste, setListe] = useState([]);
   const [aktariliyor, setAktariliyor] = useState(false);
   const [kameraAcik, setKameraAcik] = useState(false);
-  const [kameraMesaji, setKameraMesaji] = useState('');
   const [kameraTers, setKameraTers] = useState(false);
   const videoRef = useRef(null);
   const miktarRef = useRef(null);
@@ -186,11 +185,9 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     }
 
     try {
-      setKameraMesaji('Kamera açılıyor...');
       setKameraAcik(true);
       window.setTimeout(() => barkodTara(), 0);
     } catch (e) {
-      setKameraMesaji('');
       onNotify?.('error', 'Kamera açılamadı. Tarayıcı kamera iznini kontrol edin.');
     }
   };
@@ -199,8 +196,6 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     if (!videoRef.current) return;
 
     scanningRef.current = true;
-    setKameraMesaji('Barkodu yatay tutup çerçeveyi doldurun.');
-
     try {
       // Ürün barkodlarında yalnızca 1D formatları arayıp varsayılan
       // 500 ms tarama beklemesini düşürmek okumayı belirgin hızlandırır.
@@ -219,7 +214,6 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
         }
       );
     } catch (e) {
-      setKameraMesaji('');
       setKameraAcik(false);
       onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini ve bağlantıyı kontrol edin.');
     }
@@ -302,8 +296,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
             {kameraAcik && (
               <div className="barcode-camera-box">
                 <video ref={videoRef} muted playsInline style={{ transform: kameraTers ? 'scaleX(-1)' : 'none' }} />
-                <div className="barcode-camera-frame" />
-                <div className="barcode-camera-message">{kameraMesaji}</div>
+                <div className="barcode-camera-line" />
               </div>
             )}
 

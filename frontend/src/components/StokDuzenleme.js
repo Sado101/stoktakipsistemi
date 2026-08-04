@@ -27,7 +27,6 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   const [yukleniyor, setYukleniyor] = useState(false);
   const [hareketler, setHareketler] = useState([]);
   const [kameraAcik, setKameraAcik] = useState(false);
-  const [kameraMesaji, setKameraMesaji] = useState('');
   const [kameraTers, setKameraTers] = useState(false);
   const videoRef = useRef(null);
   const scannerControlsRef = useRef(null);
@@ -116,11 +115,9 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
     }
 
     try {
-      setKameraMesaji('Kamera açılıyor...');
       setKameraAcik(true);
       window.setTimeout(() => barkodTara(), 0);
     } catch (e) {
-      setKameraMesaji('');
       onNotify?.('error', 'Kamera açılamadı. Tarayıcı kamera iznini kontrol edin.');
     }
   };
@@ -129,8 +126,6 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
     if (!videoRef.current) return;
 
     scanningRef.current = true;
-    setKameraMesaji('Barkodu yatay tutup çerçeveyi doldurun.');
-
     try {
       const reader = new BrowserMultiFormatOneDReader(undefined, {
         delayBetweenScanAttempts: 60,
@@ -148,7 +143,6 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
         }
       );
     } catch (e) {
-      setKameraMesaji('');
       setKameraAcik(false);
       onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini ve bağlantıyı kontrol edin.');
     }
@@ -291,8 +285,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                     {kameraAcik && (
                       <div className="product-barcode-camera-box">
                         <video ref={videoRef} muted playsInline style={{ transform: kameraTers ? 'scaleX(-1)' : 'none' }} />
-                        <div className="product-barcode-camera-frame" />
-                        <div className="product-barcode-camera-message">{kameraMesaji}</div>
+                        <div className="product-barcode-camera-line" />
                         <button type="button" onClick={kamerayiKapat} className="product-barcode-camera-close">
                           <X size={16} />
                         </button>
