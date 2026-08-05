@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserMultiFormatOneDReader } from '@zxing/browser';
 import { api } from '../api';
 import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
+import { BARKOD_KAMERA_KISITLARI, barkodOkuyucuOlustur, kameraOdaklamasiniIyilestir } from '../barkodKamera';
 import { ArrowDown, ArrowUp, Camera, MousePointer2, PackagePlus, Pencil, Save, Search, Trash2, X } from 'lucide-react';
 
 const KAT = {
@@ -10,14 +10,6 @@ const KAT = {
 };
 
 const BOS_FORM = { urun_id: '', ad: '', fiyat: '', kategori: 'diger', sube_id: '', devreden_stok: '' };
-const HIZLI_KAMERA_KISITLARI = {
-  video: {
-    facingMode: { ideal: 'environment' },
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    frameRate: { ideal: 30 },
-  },
-};
 
 export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullanici, onNotify, onConfirm }) {
   const [urunler, setUrunler] = useState([]);
@@ -128,12 +120,9 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
 
     scanningRef.current = true;
     try {
-      const reader = new BrowserMultiFormatOneDReader(undefined, {
-        delayBetweenScanAttempts: 60,
-        delayBetweenScanSuccess: 300,
-      });
+      const reader = barkodOkuyucuOlustur();
       scannerControlsRef.current = await reader.decodeFromConstraints(
-        HIZLI_KAMERA_KISITLARI,
+        BARKOD_KAMERA_KISITLARI,
         videoRef.current,
         (result) => {
           if (!result || !scanningRef.current) return;
@@ -144,6 +133,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
           onNotify?.('success', 'Barkod alanı dolduruldu.');
         }
       );
+      await kameraOdaklamasiniIyilestir(videoRef.current);
     } catch (e) {
       setKameraAcik(false);
       onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini ve bağlantıyı kontrol edin.');
