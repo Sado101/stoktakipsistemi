@@ -1588,6 +1588,65 @@ tbody tr:last-child td { border-bottom: none; }
 .detail-stat.green strong { color: #059669; }
 .detail-stat.red strong { color: #dc2626; }
 .detail-stat.blue strong { color: #2563eb; }
+.detail-value-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.detail-value-card {
+  min-width: 0;
+  padding: 15px 16px;
+  border: 1px solid #e8d8be;
+  border-radius: 12px;
+  background: #fffaf2;
+}
+.detail-value-card > span,
+.detail-value-usage-head > span {
+  display: block;
+  margin-bottom: 8px;
+  color: #8a928c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.detail-value-card > strong,
+.detail-value-usage-head > strong {
+  color: #202620;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.detail-value-card.incoming {
+  border-color: #b8d8bd;
+  background: #f2faf4;
+}
+.detail-value-card.incoming > strong { color: #059669; }
+.detail-value-card.outgoing {
+  border-color: #efc9c6;
+  background: #fff6f4;
+}
+.detail-value-card.outgoing > strong { color: #dc2626; }
+.detail-value-card.current {
+  border-color: #cad5e4;
+  background: #f6f8fb;
+}
+.detail-value-card.current > strong { color: #2563eb; }
+.detail-value-card.usage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fffdf8;
+}
+.detail-value-usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.detail-value-usage-head > span { margin-bottom: 0; }
+.detail-value-usage-head > strong { font-size: 20px; }
 .detail-total-card {
   display: flex;
   align-items: center;
@@ -1598,6 +1657,16 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 12px;
   padding: 18px 22px;
   margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .detail-value-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-value-card.usage { grid-column: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+  .detail-value-grid { grid-template-columns: 1fr; }
+  .detail-value-card.usage { grid-column: auto; }
 }
 .detail-total-card span {
   display: block;

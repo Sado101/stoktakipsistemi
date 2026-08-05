@@ -73,6 +73,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const [kategori, setKategori] = useState('');
   const [urunler, setUrunler] = useState([]);
   const [hareketler, setHareketler] = useState([]);
+  const [ciro, setCiro] = useState(0);
   const [seciliUrunId, setSeciliUrunId] = useState(null);
   const [form, setForm] = useState({
     urun_id: '', hareket_turu: 'giris', miktar: '', aciklama: '',
@@ -108,6 +109,22 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     getir();
   }, [ay, yil, kategori, secilenSube, yenile]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const ciroGetir = async () => {
+      try {
+        const params = { ay, yil };
+        if (secilenSube) params.sube_id = secilenSube;
+        const data = await api.getCiro(params);
+        if (!cancelled) setCiro(Number(data?.ciro || 0));
+      } catch (_) {
+        if (!cancelled) setCiro(0);
+      }
+    };
+    ciroGetir();
+    return () => { cancelled = true; };
+  }, [ay, yil, secilenSube, yenile]);
+
   const seciliUrun = useMemo(
     () => urunler.find(u => u.id === seciliUrunId) || null,
     [urunler, seciliUrunId]
@@ -138,6 +155,17 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
 
   const kategoriAktif = kategoriBilgi(kategori);
   const KategoriIcon = kategoriAktif.Icon;
+  const seciliFiyat = Number(seciliUrun?.fiyat || 0);
+  const devredenDegeri = Number(seciliUrun?.devreden_stok || 0) * seciliFiyat;
+  const gelenDegeri = Number(seciliUrun?.gelen || 0) * seciliFiyat;
+  const kullanilanDeger = Number(seciliUrun?.giden || 0) * seciliFiyat;
+  const guncelDeger = Number(seciliUrun?.toplam_deger ?? (Number(seciliUrun?.guncel_stok || 0) * seciliFiyat));
+  const urunKullanimYuzdesi = ciro > 0 ? Math.round((kullanilanDeger / ciro) * 100) : null;
+  const urunKullanimRengi = urunKullanimYuzdesi === null ? '#94a3b8'
+    : urunKullanimYuzdesi <= 10 ? '#059669'
+    : urunKullanimYuzdesi <= 20 ? '#d97706'
+    : '#dc2626';
+  const para = (value) => `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const modalAc = (urun = null, hareketTuru = 'giris') => {
     setDuzenlenenHareket(null);
@@ -346,6 +374,36 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                 <span>Güncel Stok</span>
                 <strong>{sayi(seciliUrun.guncel_stok)}</strong>
                 <small>adet</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="detail-value-grid">
+            <div className="detail-value-card">
+              <span>Devreden Mal Değeri</span>
+              <strong>{para(devredenDegeri)}</strong>
+            </div>
+            <div className="detail-value-card incoming">
+              <span>Gelen Mal Değeri</span>
+              <strong>{para(gelenDegeri)}</strong>
+            </div>
+            <div className="detail-value-card outgoing">
+              <span>Kullanılan Mal Değeri</span>
+              <strong>{para(kullanilanDeger)}</strong>
+            </div>
+            <div className="detail-value-card current">
+              <span>Güncel Stok Değeri</span>
+              <strong>{para(guncelDeger)}</strong>
+            </div>
+            <div className="detail-value-card usage">
+              <div className="detail-value-usage-head">
+                <span>Kullanım %</span>
+                <strong style={{ color: urunKullanimRengi }}>
+                  {urunKullanimYuzdesi === null ? '—' : `%${urunKullanimYuzdesi}`}
+                </strong>
+              </div>
+              <div className="product-usage-track">
+                <div style={{ width: `${Math.min(urunKullanimYuzdesi ?? 0, 100)}%`, background: urunKullanimRengi }} />
               </div>
             </div>
           </div>
