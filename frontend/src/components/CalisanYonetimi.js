@@ -18,7 +18,7 @@ export default function CalisanYonetimi({ subeId, aktifCalisanId, onNotify, onCo
   const ekle = async (e) => {
     e.preventDefault();
     if (!form.ad.trim() || !/^\d{2,12}$/.test(form.pin)) {
-      return onNotify?.('error', 'Adı ve 2-12 haneli rakamsal şifreyi girin.');
+      return onNotify?.('error', 'Adı ve şifreyi girin.');
     }
     setIslemde(true);
     try {
