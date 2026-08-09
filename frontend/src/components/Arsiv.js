@@ -18,26 +18,26 @@ const AYLAR = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temm
 const RAPORLAR = [
   {
     key: 'genel',
-    title: 'Genel Özet Excel',
-    desc: 'Ciro, adisyon, kullanım yüzdesi ve kategori bazlı toplamlar.',
+    title: 'Kontrol Paneli Excel',
+    desc: 'Devreden, gelen, kullanılan, güncel değerler ve kategori özeti.',
     Icon: BarChart3,
   },
   {
     key: 'urun',
-    title: 'Ürün Ürün Detay Excel',
-    desc: 'Her ürün için devreden, giriş, çıkış, güncel stok ve açıklama alanları.',
+    title: 'Aylık Stok Excel',
+    desc: 'Tüm ürünlerin miktar, değer ve stok durumları tek filtrelenebilir tabloda.',
     Icon: Package,
   },
   {
     key: 'gunluk',
     title: 'Günlük Hareket Excel',
-    desc: 'Seçili dönemdeki tüm giriş ve çıkış kayıtları satır satır.',
+    desc: 'Giriş ve çıkışlar; kullanıcı, kaynak, saat ve işlem değeriyle satır satır.',
     Icon: CalendarDays,
   },
   {
     key: 'tam',
-    title: 'Tam Arşiv Paketi',
-    desc: 'Yönetici özeti, stok özeti, ürün detay, günlük hareket ve ciro sekmeleri.',
+    title: 'Yeni Tam Rapor Paketi',
+    desc: 'Kontrol paneli, aylık stok, günlük hareketler, kategori özeti ve kullanım rehberi.',
     Icon: FileSpreadsheet,
   },
 ];
