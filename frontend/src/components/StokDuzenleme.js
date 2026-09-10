@@ -11,6 +11,10 @@ const KAT = {
 
 const BOS_FORM = { urun_id: '', ad: '', fiyat: '', kategori: 'diger', sube_id: '', devreden_stok: '' };
 
+function fiyatFmt(value) {
+  return `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullanici, onNotify, onConfirm }) {
   const [urunler, setUrunler] = useState([]);
   const [arama, setArama] = useState('');
@@ -358,6 +362,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                             <th style={{ padding: '7px 10px', textAlign: 'left', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Tarih</th>
                             <th style={{ padding: '7px 10px', textAlign: 'center', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Tür</th>
                             <th style={{ padding: '7px 10px', textAlign: 'right', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Miktar</th>
+                            <th style={{ padding: '7px 10px', textAlign: 'right', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>Fiyat</th>
                             <th style={{ padding: '7px 10px', textAlign: 'left', color: '#607064', fontWeight: 800, borderBottom: '1px solid #efe6d8' }}>İşlemi Yapan</th>
                           </tr>
                         </thead>
@@ -371,6 +376,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                                   : <span style={{ color: '#dc2626', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}><ArrowDown size={14} /> Çıkış</span>}
                               </td>
                               <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 800 }}>{h.miktar}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 800 }}>{fiyatFmt(h.birim_fiyat)}</td>
                               <td style={{ padding: '7px 10px', color: '#526559', fontSize: 12, fontWeight: 700 }}>{h.islemi_yapan || 'Eski kayıt'}</td>
                             </tr>
                           ))}

@@ -77,13 +77,15 @@ class Calisan(db.Model):
 class Urun(db.Model):
     __tablename__ = 'urunler'
     id = db.Column(db.Integer, primary_key=True)
-    urun_id = db.Column(db.String(50), unique=True, nullable=False)
+    urun_id = db.Column(db.String(50), nullable=False)
     ad = db.Column(db.String(150), nullable=False)
     fiyat = db.Column(db.Float, nullable=False, default=0.0)
     kategori = db.Column(db.String(50), nullable=False, default='diger')
     sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=False)
     devreden_stok = db.Column(db.Float, nullable=False, default=0.0)
     hareketler = db.relationship('StokHareketi', backref='urun', lazy=True)
+
+    __table_args__ = (db.UniqueConstraint('sube_id', 'urun_id', name='uq_urun_sube_urun_id'),)
 
     def donem_stoklari(self, ay, yil):
         """Dönem devredeni, o aydan önceki bütün hareketlerin sonucudur."""
@@ -108,6 +110,23 @@ class Urun(db.Model):
         giris = toplam('giris')
         cikis = toplam('cikis')
         return devreden, giris, cikis, devreden + giris - cikis
+
+    def hareket_degeri(self, hareket_turu, ay=None, yil=None):
+        query = db.session.query(
+            db.func.coalesce(
+                db.func.sum(StokHareketi.miktar * db.func.coalesce(StokHareketi.birim_fiyat, self.fiyat)),
+                0
+            )
+        ).filter(
+            StokHareketi.urun_id == self.id,
+            StokHareketi.hareket_turu == hareket_turu,
+        )
+        if ay and yil:
+            ay, yil = int(ay), int(yil)
+            baslangic = date(yil, ay, 1)
+            bitis = date(yil + 1, 1, 1) if ay == 12 else date(yil, ay + 1, 1)
+            query = query.filter(StokHareketi.tarih >= baslangic, StokHareketi.tarih < bitis)
+        return round(float(query.scalar() or 0), 2)
 
     def to_dict(self, ay=None, yil=None):
         from sqlalchemy import func, extract
@@ -138,6 +157,8 @@ class Urun(db.Model):
             'gelen': float(gelen),
             'giden': float(giden),
             'guncel_stok': float(guncel),
+            'gelen_deger': self.hareket_degeri('giris', ay=ay, yil=yil),
+            'kullanilan_deger': self.hareket_degeri('cikis', ay=ay, yil=yil),
             'toplam_deger': round(float(guncel) * self.fiyat, 2)
         }
 
@@ -147,6 +168,7 @@ class StokHareketi(db.Model):
     urun_id = db.Column(db.Integer, db.ForeignKey('urunler.id'), nullable=False)
     hareket_turu = db.Column(db.String(10), nullable=False)
     miktar = db.Column(db.Float, nullable=False)
+    birim_fiyat = db.Column(db.Float, nullable=True)
     tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     aciklama = db.Column(db.String(250))
     islemi_yapan = db.Column(db.String(100), nullable=True)
@@ -164,6 +186,8 @@ class StokHareketi(db.Model):
             'urun_ad': self.urun.ad if self.urun else '',
             'hareket_turu': self.hareket_turu,
             'miktar': self.miktar,
+            'birim_fiyat': float(self.birim_fiyat if self.birim_fiyat is not None else (self.urun.fiyat if self.urun else 0)),
+            'hareket_degeri': round(float(self.miktar or 0) * float(self.birim_fiyat if self.birim_fiyat is not None else (self.urun.fiyat if self.urun else 0)), 2),
             'tarih': self.tarih.strftime('%d.%m.%Y'),
             'tarih_iso': self.tarih.strftime('%Y-%m-%d'),
             'saat': yerel_olusturma.strftime('%H:%M') if yerel_olusturma else '',

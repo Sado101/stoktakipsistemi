@@ -1,11 +1,14 @@
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
+import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
+import { BARKOD_KAMERA_KISITLARI, barkodOkuyucuOlustur, kameraOdaklamasiniIyilestir } from '../barkodKamera';
 import {
   Archive,
   Beef,
   Boxes,
   Box,
   CalendarDays,
+  Camera,
   ChevronDown,
   ChevronUp,
   Cookie,
@@ -16,9 +19,11 @@ import {
   Package,
   PackageCheck,
   PackageOpen,
+  ScanBarcode,
   Sandwich,
   ShoppingBasket,
   Wheat,
+  X,
 } from 'lucide-react';
 
 const KATEGORILER = [
@@ -61,8 +66,18 @@ function aciklamaFmt(h) {
   return h?.islemi_yapan || 'Eski kayıt';
 }
 
+function fiyatFmt(value) {
+  return `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function kategoriBilgi(key) {
   return KATEGORILER.find(k => k.key === key) || KATEGORILER[0];
+}
+
+function barkodlaUrunBul(kod, urunler) {
+  const temizKod = String(kod || '').trim().toLocaleLowerCase('tr-TR');
+  if (!temizKod) return null;
+  return urunler.find(u => String(u.urun_id || '').trim().toLocaleLowerCase('tr-TR') === temizKod) || null;
 }
 
 export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, donemAcik, onKilitAc, onNotify, onConfirm }) {
@@ -76,7 +91,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const [ciro, setCiro] = useState(0);
   const [seciliUrunId, setSeciliUrunId] = useState(null);
   const [form, setForm] = useState({
-    urun_id: '', hareket_turu: 'giris', miktar: '', aciklama: '',
+    urun_id: '', hareket_turu: 'giris', miktar: '', birim_fiyat: '', aciklama: '',
     tarih: now.toISOString().split('T')[0]
   });
   const [yukleniyor, setYukleniyor] = useState(false);
@@ -84,6 +99,12 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const [duzenlenenHareket, setDuzenlenenHareket] = useState(null);
   const [acikMenu, setAcikMenu] = useState(null);
   const [acikGun, setAcikGun] = useState(null);
+  const [arama, setArama] = useState('');
+  const [kameraAcik, setKameraAcik] = useState(false);
+  const videoRef = useRef(null);
+  const scannerControlsRef = useRef(null);
+  const scanningRef = useRef(false);
+  const bekleyenBarkodRef = useRef(null);
 
   useEffect(() => {
     const getir = async () => {
@@ -125,6 +146,22 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     return () => { cancelled = true; };
   }, [ay, yil, secilenSube, yenile]);
 
+  useEffect(() => () => kamerayiKapat(), []);
+
+  // Kategori filtresi kaldırıldıktan sonra okutulan barkodu yeni listede arar.
+  useEffect(() => {
+    const kod = bekleyenBarkodRef.current;
+    if (!kod || yukleniyor) return;
+    bekleyenBarkodRef.current = null;
+    const bulunan = barkodlaUrunBul(kod, urunler);
+    if (bulunan) {
+      setSeciliUrunId(bulunan.id);
+      onNotify?.('success', `${bulunan.ad} bulundu.`);
+    } else {
+      onNotify?.('error', 'Bu barkod/Ürün ID ile kayıtlı ürün bulunamadı.');
+    }
+  }, [urunler, yukleniyor]);
+
   const seciliUrun = useMemo(
     () => urunler.find(u => u.id === seciliUrunId) || null,
     [urunler, seciliUrunId]
@@ -134,6 +171,15 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     if (!seciliUrun) return [];
     return hareketler.filter(h => h.urun_id === seciliUrun.id);
   }, [hareketler, seciliUrun]);
+
+  const filtreliUrunler = useMemo(() => {
+    const q = arama.trim().toLocaleLowerCase('tr-TR');
+    if (!q) return urunler;
+    return urunler.filter(u => (
+      String(u.ad || '').toLocaleLowerCase('tr-TR').includes(q) ||
+      String(u.urun_id || '').toLocaleLowerCase('tr-TR').includes(q)
+    ));
+  }, [urunler, arama]);
 
 
   const gunlukHareketler = useMemo(() => {
@@ -157,8 +203,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const KategoriIcon = kategoriAktif.Icon;
   const seciliFiyat = Number(seciliUrun?.fiyat || 0);
   const devredenDegeri = Number(seciliUrun?.devreden_stok || 0) * seciliFiyat;
-  const gelenDegeri = Number(seciliUrun?.gelen || 0) * seciliFiyat;
-  const kullanilanDeger = Number(seciliUrun?.giden || 0) * seciliFiyat;
+  const gelenDegeri = Number(seciliUrun?.gelen_deger ?? (Number(seciliUrun?.gelen || 0) * seciliFiyat));
+  const kullanilanDeger = Number(seciliUrun?.kullanilan_deger ?? (Number(seciliUrun?.giden || 0) * seciliFiyat));
   const guncelDeger = Number(seciliUrun?.toplam_deger ?? (Number(seciliUrun?.guncel_stok || 0) * seciliFiyat));
   const urunKullanimYuzdesi = ciro > 0 ? Math.round((kullanilanDeger / ciro) * 100) : null;
   const urunKullanimRengi = urunKullanimYuzdesi === null ? '#94a3b8'
@@ -167,6 +213,66 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     : '#dc2626';
   const para = (value) => `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const kamerayiKapat = () => {
+    scanningRef.current = false;
+    if (scannerControlsRef.current) {
+      scannerControlsRef.current.stop();
+      scannerControlsRef.current = null;
+    }
+    setKameraAcik(false);
+  };
+
+  const kameraBaslat = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      onNotify?.('error', 'Bu tarayıcı kamera erişimini desteklemiyor.');
+      return;
+    }
+    try {
+      barkodSesiniHazirla();
+      setKameraAcik(true);
+      window.setTimeout(() => barkodTara(), 0);
+    } catch (e) {
+      onNotify?.('error', 'Kamera açılamadı. Tarayıcı kamera iznini kontrol edin.');
+    }
+  };
+
+  const barkodTara = async () => {
+    if (!videoRef.current) return;
+
+    scanningRef.current = true;
+    try {
+      const reader = barkodOkuyucuOlustur();
+      scannerControlsRef.current = await reader.decodeFromConstraints(
+        BARKOD_KAMERA_KISITLARI,
+        videoRef.current,
+        (result) => {
+          if (!result || !scanningRef.current) return;
+          const kod = String(result.getText() || '').trim();
+          basariliBarkodSesiCal();
+          kamerayiKapat();
+          setArama(kod);
+          const bulunan = barkodlaUrunBul(kod, urunler);
+          if (bulunan) {
+            setSeciliUrunId(bulunan.id);
+            onNotify?.('success', `${bulunan.ad} bulundu.`);
+          } else if (kategori) {
+            // Ürün başka bir kategoride olabilir; filtreyi kaldırıp yeniden arıyoruz.
+            bekleyenBarkodRef.current = kod;
+            setSeciliUrunId(null);
+            setKategori('');
+          } else {
+            setSeciliUrunId(null);
+            onNotify?.('error', 'Bu barkod/Ürün ID ile kayıtlı ürün bulunamadı.');
+          }
+        }
+      );
+      await kameraOdaklamasiniIyilestir(videoRef.current);
+    } catch (e) {
+      setKameraAcik(false);
+      onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini kontrol edin.');
+    }
+  };
+
   const modalAc = (urun = null, hareketTuru = 'giris') => {
     setDuzenlenenHareket(null);
     setForm(f => ({
@@ -174,6 +280,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
       urun_id: urun ? String(urun.id) : '',
       hareket_turu: hareketTuru,
       miktar: '',
+      birim_fiyat: hareketTuru === 'giris' && urun ? String(urun.fiyat ?? '') : '',
       aciklama: ''
     }));
     setHarModal(true);
@@ -186,6 +293,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
       urun_id: String(hareket.urun_id),
       hareket_turu: hareket.hareket_turu,
       miktar: String(hareket.miktar),
+      birim_fiyat: hareket.hareket_turu === 'giris' ? String(hareket.birim_fiyat ?? '') : '',
       aciklama: hareket.aciklama || '',
       tarih: hareket.tarih_iso || hareket.tarih
     });
@@ -194,19 +302,24 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
 
   const kaydet = async (e) => {
     e.preventDefault();
-    if (!form.urun_id || !form.miktar) {
-      onNotify?.('error', 'Ürün ve miktar zorunludur.');
+    if (!form.urun_id || !form.miktar || (form.hareket_turu === 'giris' && form.birim_fiyat === '')) {
+      onNotify?.('error', form.hareket_turu === 'giris' ? 'Ürün, miktar ve fiyat zorunludur.' : 'Ürün ve miktar zorunludur.');
       return;
     }
     try {
       const payload = { ...form, urun_id: parseInt(form.urun_id), miktar: parseFloat(form.miktar) };
+      if (form.hareket_turu === 'giris') {
+        payload.birim_fiyat = parseFloat(form.birim_fiyat);
+      } else {
+        delete payload.birim_fiyat;
+      }
       if (duzenlenenHareket) {
         await api.updateHareket(duzenlenenHareket.id, payload);
       } else {
         await api.createHareket(payload);
       }
       onNotify?.('success', `${form.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'} ${duzenlenenHareket ? 'güncellendi' : 'kaydedildi'}.`);
-      setForm(f => ({ ...f, urun_id: '', miktar: '', aciklama: '' }));
+      setForm(f => ({ ...f, urun_id: '', miktar: '', birim_fiyat: '', aciklama: '' }));
       setDuzenlenenHareket(null);
       setHarModal(false);
       onHareket();
@@ -280,16 +393,43 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
               </div>
               <div className="product-list-subtitle">Detay görmek için bir ürüne tıklayın.</div>
             </div>
-            <div className="product-list-count">{urunler.length} ürün</div>
+            <div className="product-list-count">{filtreliUrunler.length} ürün</div>
           </div>
+
+          <div className="movement-search-row">
+            <div className="barcode-search-input">
+              <ScanBarcode size={18} />
+              <input
+                placeholder="Ürün adı, ID veya barkod..."
+                value={arama}
+                onChange={e => {
+                  setArama(e.target.value);
+                  setSeciliUrunId(null);
+                }}
+              />
+              <button type="button" onClick={kameraBaslat} disabled={kameraAcik} title="Kamera ile barkod okut">
+                <Camera size={18} />
+              </button>
+            </div>
+          </div>
+
+          {kameraAcik && (
+            <div className="inline-barcode-camera">
+              <video ref={videoRef} muted playsInline />
+              <div className="barcode-camera-line" />
+              <button type="button" onClick={kamerayiKapat} title="Kamerayı kapat">
+                <X size={18} />
+              </button>
+            </div>
+          )}
 
           {yukleniyor ? (
             <div className="empty-state">Yükleniyor...</div>
-          ) : urunler.length === 0 ? (
+          ) : filtreliUrunler.length === 0 ? (
             <div className="empty-state">Bu kategori için ürün bulunamadı.</div>
           ) : (
             <div className="product-card-grid">
-              {urunler.map(u => {
+              {filtreliUrunler.map(u => {
                 const durum = u.guncel_stok <= 0 ? 'empty' : u.guncel_stok < 10 ? 'low' : 'ok';
                 return (
                   <button key={u.id} className={`product-stock-card ${durum}`} onClick={() => setSeciliUrunId(u.id)}>
@@ -417,6 +557,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                     <th>Tarih</th>
                     <th style={{ textAlign: 'center' }}>Giriş</th>
                     <th style={{ textAlign: 'center' }}>Çıkış</th>
+                    <th style={{ textAlign: 'right' }}>Fiyat</th>
+                    <th style={{ textAlign: 'right' }}>Tutar</th>
                     <th>Açıklama</th>
                     <th style={{ width: 54 }}></th>
                   </tr>
@@ -424,7 +566,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                 <tbody>
                   {gunlukHareketler.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>
+                      <td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>
                         Bu ürün için seçili ayda hareket yok.
                       </td>
                     </tr>
@@ -444,6 +586,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                           <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 800 }}>
                             {g.cikis > 0 ? sayi(g.cikis) : '-'}
                           </td>
+                          <td></td>
+                          <td></td>
                           <td style={{ color: '#8a928c', fontSize: 12 }}>{g.kayitlar.length} kayıt</td>
                           <td></td>
                         </tr>
@@ -456,6 +600,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                             <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
                               {h.hareket_turu === 'cikis' ? sayi(h.miktar) : '-'}
                             </td>
+                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{fiyatFmt(h.birim_fiyat)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{fiyatFmt(h.hareket_degeri)}</td>
                             <td style={{ color: '#8a928c', fontSize: 12 }}>{aciklamaFmt(h)}</td>
                             <td style={{ textAlign: 'right' }}>
                               {!ayKapali && (
@@ -514,7 +660,9 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                           <div key={h.id} className="mobile-movement-detail-row">
                             <div>
                               <div className="mobile-movement-date">Saat {saatFmt(h) || 'yok'}</div>
-                              <div className="mobile-movement-note">{aciklamaFmt(h)}</div>
+                              <div className="mobile-movement-note">
+                                {aciklamaFmt(h)} · Fiyat: {fiyatFmt(h.birim_fiyat)} · Tutar: {fiyatFmt(h.hareket_degeri)}
+                              </div>
                             </div>
                             <div className="mobile-movement-amount">
                               <span>{h.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'}</span>
@@ -569,9 +717,16 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
               </div>
               <div className="form-group" style={{ marginBottom: 14 }}>
                 <label>Ürün</label>
-                <select value={form.urun_id} onChange={e => setForm(f => ({ ...f, urun_id: e.target.value }))}>
+                <select value={form.urun_id} onChange={e => {
+                  const urun = urunler.find(u => String(u.id) === e.target.value);
+                  setForm(f => ({
+                    ...f,
+                    urun_id: e.target.value,
+                    birim_fiyat: f.hareket_turu === 'giris' && urun ? String(urun.fiyat ?? '') : f.birim_fiyat
+                  }));
+                }}>
                   <option value="">Ürün Seçin</option>
-                  {urunler.map(u => <option key={u.id} value={String(u.id)}>{u.ad} — Stok: {sayi(u.guncel_stok)}</option>)}
+                  {urunler.map(u => <option key={u.id} value={String(u.id)}>{u.ad} — Stok: {sayi(u.guncel_stok)} — Son fiyat: {fiyatFmt(u.fiyat)}</option>)}
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 14 }}>
@@ -580,6 +735,14 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                   onChange={e => setForm(f => ({ ...f, miktar: e.target.value }))}
                   placeholder="0" inputMode="decimal" />
               </div>
+              {form.hareket_turu === 'giris' && (
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label>Fiyat</label>
+                  <input type="number" step="0.01" min="0" value={form.birim_fiyat}
+                    onChange={e => setForm(f => ({ ...f, birim_fiyat: e.target.value }))}
+                    placeholder="0.00" inputMode="decimal" />
+                </div>
+              )}
               <div className="form-group" style={{ marginBottom: 20 }}>
                 <label>Açıklama (opsiyonel)</label>
                 <input value={form.aciklama} onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))} placeholder="Not ekle..." />

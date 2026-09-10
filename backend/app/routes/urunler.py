@@ -80,10 +80,10 @@ def create_urun():
     if hata:
         return hata
 
-    if Urun.query.filter_by(urun_id=urun_id).first():
-        return jsonify({'error': 'Bu ürün ID zaten kullanılıyor'}), 400
     if not Sube.query.get(sube_id):
         return jsonify({'error': 'Şube bulunamadı'}), 400
+    if Urun.query.filter_by(sube_id=sube_id, urun_id=urun_id).first():
+        return jsonify({'error': 'Bu ürün ID bu şubede zaten kullanılıyor'}), 400
     engel = stok_islem_izni(sube_id)
     if engel:
         return engel
@@ -123,14 +123,15 @@ def update_urun(id):
     if engel:
         return engel
 
+    hedef_urun_id = urun.urun_id
     if 'urun_id' in data:
-        yeni_urun_id = str(data.get('urun_id', '')).strip()
-        if not yeni_urun_id:
+        hedef_urun_id = str(data.get('urun_id', '')).strip()
+        if not hedef_urun_id:
             return bad_request('Ürün ID boş olamaz')
-        mevcut = Urun.query.filter_by(urun_id=yeni_urun_id).first()
-        if mevcut and mevcut.id != urun.id:
-            return jsonify({'error': 'Bu ürün ID zaten kullanılıyor'}), 400
-        urun.urun_id = yeni_urun_id
+    mevcut = Urun.query.filter_by(sube_id=hedef_sube_id, urun_id=hedef_urun_id).first()
+    if mevcut and mevcut.id != urun.id:
+        return jsonify({'error': 'Bu ürün ID bu şubede zaten kullanılıyor'}), 400
+    urun.urun_id = hedef_urun_id
     if 'ad' in data:
         ad = str(data.get('ad', '')).strip()
         if not ad:

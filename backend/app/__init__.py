@@ -133,6 +133,8 @@ def _migrate_db():
         "UPDATE stok_hareketleri SET olusturma = CURRENT_TIMESTAMP WHERE olusturma IS NULL",
         "ALTER TABLE stok_hareketleri ADD COLUMN islemi_yapan VARCHAR(100)",
         "ALTER TABLE stok_hareketleri ADD COLUMN islem_kaynagi VARCHAR(30)",
+        "ALTER TABLE stok_hareketleri ADD COLUMN birim_fiyat FLOAT",
+        "UPDATE stok_hareketleri SET birim_fiyat = (SELECT fiyat FROM urunler WHERE urunler.id = stok_hareketleri.urun_id) WHERE birim_fiyat IS NULL",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -150,6 +152,11 @@ def _migrate_postgres_db():
         "ALTER TABLE subeler ALTER COLUMN kod TYPE VARCHAR(100)",
         "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS islemi_yapan VARCHAR(100)",
         "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS islem_kaynagi VARCHAR(30)",
+        "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS birim_fiyat DOUBLE PRECISION",
+        "UPDATE stok_hareketleri h SET birim_fiyat = u.fiyat FROM urunler u WHERE h.urun_id = u.id AND h.birim_fiyat IS NULL",
+        "ALTER TABLE urunler DROP CONSTRAINT IF EXISTS urunler_urun_id_key",
+        "DROP INDEX IF EXISTS ix_urunler_urun_id",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_urun_sube_urun_id ON urunler (sube_id, urun_id)",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:

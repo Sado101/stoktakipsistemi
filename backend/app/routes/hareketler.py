@@ -85,18 +85,33 @@ def create_hareket():
     if tarih is None:
         tarih = datetime.utcnow().date()
 
+    fiyat_raw = data.get('birim_fiyat', data.get('fiyat'))
+    if hareket_turu == 'giris':
+        birim_fiyat, hata = parse_float(fiyat_raw, 'birim_fiyat', required=True, min_value=0)
+        if hata:
+            return hata
+    else:
+        birim_fiyat, hata = parse_float(fiyat_raw, 'birim_fiyat', min_value=0)
+        if hata:
+            return hata
+        if birim_fiyat is None:
+            birim_fiyat = float(urun.fiyat or 0)
+
     hareket = StokHareketi(
         urun_id=urun_id,
         hareket_turu=hareket_turu,
         miktar=miktar,
+        birim_fiyat=birim_fiyat,
         tarih=tarih,
         aciklama=data.get('aciklama', ''),
         islemi_yapan=aktif_kullanici_adi(),
         islem_kaynagi=str(data.get('islem_kaynagi', 'manuel'))[:30]
     )
     db.session.add(hareket)
+    if hareket_turu == 'giris':
+        urun.fiyat = birim_fiyat
     islem_kaydet(urun.sube_id, 'Stok girişi' if hareket_turu == 'giris' else 'Stok çıkışı', 'Stok hareketi',
-                 f'{urun.ad} · {miktar:g} adet')
+                 f'{urun.ad} · {miktar:g} adet · Fiyat: {birim_fiyat:.2f}')
     db.session.commit()
     return jsonify(hareket.to_dict()), 201
 
@@ -152,6 +167,12 @@ def update_hareket(id):
         if hata:
             return hata
         hareket.miktar = miktar
+    if data.get('birim_fiyat') is not None or data.get('fiyat') is not None:
+        fiyat_raw = data.get('birim_fiyat', data.get('fiyat'))
+        birim_fiyat, hata = parse_float(fiyat_raw, 'birim_fiyat', required=True, min_value=0)
+        if hata:
+            return hata
+        hareket.birim_fiyat = birim_fiyat
     if data.get('tarih'):
         tarih, hata = parse_iso_date(data.get('tarih'), required=True)
         if hata:
@@ -161,8 +182,10 @@ def update_hareket(id):
         hareket.aciklama = data.get('aciklama', '')
 
     hareket.islemi_yapan = aktif_kullanici_adi()
+    if hareket.hareket_turu == 'giris' and hareket.birim_fiyat is not None and hareket.urun:
+        hareket.urun.fiyat = hareket.birim_fiyat
     islem_kaydet(hareket.urun.sube_id if hareket.urun else None, 'Hareket güncellendi', 'Stok hareketi',
-                 f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet')
+                 f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet · Fiyat: {float(hareket.birim_fiyat or 0):.2f}')
     db.session.commit()
     return jsonify(hareket.to_dict())
 

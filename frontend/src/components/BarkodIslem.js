@@ -140,6 +140,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
           urun_id: item.urun.id,
           hareket_turu: item.hareket_turu,
           miktar: item.miktar,
+          birim_fiyat: Number(item.urun.fiyat || 0),
           tarih: item.tarih,
           aciklama: '',
           islem_kaynagi: 'barkod',

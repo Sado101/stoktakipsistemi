@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
-import { AlertTriangle, BarChart3, CreditCard, Package, ReceiptText, TrendingUp, WalletCards } from 'lucide-react';
+import { barkodSesiniHazirla, basariliBarkodSesiCal } from '../barkodSesi';
+import { BARKOD_KAMERA_KISITLARI, barkodOkuyucuOlustur, kameraOdaklamasiniIyilestir } from '../barkodKamera';
+import { AlertTriangle, BarChart3, Camera, CreditCard, Package, ReceiptText, ScanBarcode, TrendingUp, WalletCards, X } from 'lucide-react';
 
 const KAT = {
   '': 'Tümü', ambalaj: 'Ambalaj', icecek: 'İçecek', sos: 'Sos', et: 'Et',
@@ -19,6 +21,10 @@ const ayKapali = ayKapaliHam && !donemAcik;
   const [ciro, setCiro] = useState('');
   const [adisyon, setAdisyon] = useState('');
   const [ciroDurum, setCiroDurum] = useState(null);
+  const [kameraAcik, setKameraAcik] = useState(false);
+  const videoRef = useRef(null);
+  const scannerControlsRef = useRef(null);
+  const scanningRef = useRef(false);
 
   useEffect(() => {
     const getir = async () => {
@@ -61,6 +67,8 @@ const ayKapali = ayKapaliHam && !donemAcik;
     return () => { cancelled = true; };
   }, [secilenSube, ay, yil]);
 
+  useEffect(() => () => kamerayiKapat(), []);
+
   const kaydetCiro = async () => {
     try {
       await api.saveCiro({
@@ -78,7 +86,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
   const ortAdisyon = ciro && adisyon && parseInt(adisyon) > 0
     ? (parseFloat(ciro) / parseInt(adisyon)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })
     : null;
-  const toplamKullanilanDeger = urunler.reduce((acc, u) => acc + (u.giden * u.fiyat), 0);
+  const toplamKullanilanDeger = urunler.reduce((acc, u) => acc + Number(u.kullanilan_deger ?? (u.giden * u.fiyat)), 0);
   const kullanimYuzdesi = ciro && parseFloat(ciro) > 0
     ? Math.round((toplamKullanilanDeger / parseFloat(ciro)) * 100)
     : null;
@@ -88,12 +96,62 @@ const ayKapali = ayKapaliHam && !donemAcik;
     : '#dc2626';
   const ciroSayisi = ciro ? parseFloat(ciro) : 0;
   const urunKullanimYuzdesi = (u) => ciroSayisi > 0
-    ? Math.round(((u.giden * u.fiyat) / ciroSayisi) * 100)
+    ? Math.round((Number(u.kullanilan_deger ?? (u.giden * u.fiyat)) / ciroSayisi) * 100)
     : null;
   const urunKullanimRenk = (oran) => oran === null ? '#94a3b8'
     : oran <= 10 ? '#059669'
     : oran <= 20 ? '#d97706'
     : '#dc2626';
+
+  const kamerayiKapat = () => {
+    scanningRef.current = false;
+    if (scannerControlsRef.current) {
+      scannerControlsRef.current.stop();
+      scannerControlsRef.current = null;
+    }
+    setKameraAcik(false);
+  };
+
+  const kameraBaslat = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      onNotify?.('error', 'Bu tarayıcı kamera erişimini desteklemiyor.');
+      return;
+    }
+    try {
+      barkodSesiniHazirla();
+      setKameraAcik(true);
+      window.setTimeout(() => barkodTara(), 0);
+    } catch (e) {
+      onNotify?.('error', 'Kamera açılamadı. Tarayıcı kamera iznini kontrol edin.');
+    }
+  };
+
+  const barkodTara = async () => {
+    if (!videoRef.current) return;
+
+    scanningRef.current = true;
+    try {
+      const reader = barkodOkuyucuOlustur();
+      scannerControlsRef.current = await reader.decodeFromConstraints(
+        BARKOD_KAMERA_KISITLARI,
+        videoRef.current,
+        (result) => {
+          if (!result || !scanningRef.current) return;
+          const kod = String(result.getText() || '').trim();
+          basariliBarkodSesiCal();
+          kamerayiKapat();
+          // Okutulan ürün başka bir kategoride olabilir; filtreyi kaldırmazsak bulunamaz.
+          setKategori('');
+          setArama(kod);
+          onNotify?.('success', `Barkod okundu: ${kod}`);
+        }
+      );
+      await kameraOdaklamasiniIyilestir(videoRef.current);
+    } catch (e) {
+      setKameraAcik(false);
+      onNotify?.('error', 'Kamera ile barkod okunamadı. Kamera iznini kontrol edin.');
+    }
+  };
 
   return (
     <div>
@@ -212,12 +270,27 @@ const ayKapali = ayKapaliHam && !donemAcik;
 
       {/* Stok listesi */}
       <div className="card stock-list-card">
-        <div className="search-bar">
-          <input placeholder="Ürün adı veya ID..." value={arama} onChange={e => setArama(e.target.value)} />
+        <div className="search-bar barcode-search-bar">
+          <div className="barcode-search-input">
+            <ScanBarcode size={18} />
+            <input placeholder="Ürün adı, ID veya barkod..." value={arama} onChange={e => setArama(e.target.value)} />
+            <button type="button" onClick={kameraBaslat} disabled={kameraAcik} title="Kamera ile barkod okut">
+              <Camera size={18} />
+            </button>
+          </div>
           <select value={kategori} onChange={e => setKategori(e.target.value)}>
             {Object.entries(KAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
+        {kameraAcik && (
+          <div className="inline-barcode-camera">
+            <video ref={videoRef} muted playsInline />
+            <div className="barcode-camera-line" />
+            <button type="button" onClick={kamerayiKapat} title="Kamerayı kapat">
+              <X size={18} />
+            </button>
+          </div>
+        )}
 
         {yukleniyor ? (
           <div style={{ padding: '30px 0', textAlign: 'center', color: '#94a3b8' }}>Yükleniyor...</div>

@@ -88,6 +88,14 @@ def _product_row(urun, all_hareketler, ay, yil):
     devreden, _, _, _ = urun.donem_stoklari(ay, yil)
     fiyat = float(urun.fiyat or 0)
     guncel = devreden + giris - cikis
+    gelen_deger = sum(
+        float(h.miktar or 0) * float(h.birim_fiyat if h.birim_fiyat is not None else fiyat)
+        for h in movements if h.hareket_turu == "giris"
+    )
+    kullanilan_deger = sum(
+        float(h.miktar or 0) * float(h.birim_fiyat if h.birim_fiyat is not None else fiyat)
+        for h in movements if h.hareket_turu == "cikis"
+    )
     latest = sorted(movements, key=lambda h: (h.tarih, h.id), reverse=True)
     son_hareket = ""
     for h in latest:
@@ -105,8 +113,8 @@ def _product_row(urun, all_hareketler, ay, yil):
         "guncel": guncel,
         "fiyat": fiyat,
         "devreden_deger": devreden * fiyat,
-        "gelen_deger": giris * fiyat,
-        "kullanilan_deger": cikis * fiyat,
+        "gelen_deger": gelen_deger,
+        "kullanilan_deger": kullanilan_deger,
         "stok_degeri": guncel * fiyat,
         "durum": "Stok Yok" if guncel <= 0 else "Kritik" if guncel <= 5 else "Normal",
         "son_hareket": son_hareket,
@@ -254,7 +262,7 @@ def _movements_sheet(ay, yil, subtitle, hareketler):
     ]
     for h in hareketler:
         movement = h.to_dict()
-        fiyat = float(h.urun.fiyat or 0) if h.urun else 0
+        fiyat = float(h.birim_fiyat if h.birim_fiyat is not None else (h.urun.fiyat or 0)) if h.urun else 0
         miktar = float(h.miktar or 0)
         tur = "Giriş" if h.hareket_turu == "giris" else "Çıkış" if h.hareket_turu == "cikis" else "Geçersiz"
         rows.append([
