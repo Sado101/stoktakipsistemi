@@ -27,8 +27,8 @@ def _validate_sube_fields(data, require_password=False):
         return None, None, None, bad_request('Şube kodu en fazla 100 karakter olmalı')
     if len(isim) > 100:
         return None, None, None, bad_request('Şube adı en fazla 100 karakter olmalı')
-    if require_password and len(sifre) < 6:
-        return None, None, None, bad_request('Şube şifresi en az 6 karakter olmalı')
+    if require_password and len(sifre) < 4:
+        return None, None, None, bad_request('Şube şifresi en az 4 karakter olmalı')
     if sifre and len(sifre) > 100:
         return None, None, None, bad_request('Şube şifresi en fazla 100 karakter olmalı')
 
@@ -248,8 +248,8 @@ def reset_sube_sifre(id):
         return hata
 
     yeni_sifre = str(data.get('sifre', '')).strip()
-    if len(yeni_sifre) < 6:
-        return bad_request('Şube şifresi en az 6 karakter olmalı')
+    if len(yeni_sifre) < 4:
+        return bad_request('Şube şifresi en az 4 karakter olmalı')
 
     sube.sifre = yeni_sifre
     db.session.commit()
@@ -302,8 +302,8 @@ def update_sube_bilgi(id):
         sube.isim = isim
     if data.get('sifre'):
         sifre = _clean_text(data['sifre'])
-        if len(sifre) < 6:
-            return bad_request('Şube şifresi en az 6 karakter olmalı')
+        if len(sifre) < 4:
+            return bad_request('Şube şifresi en az 4 karakter olmalı')
         if len(sifre) > 100:
             return bad_request('Şube şifresi en fazla 100 karakter olmalı')
         sube.sifre = sifre

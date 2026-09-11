@@ -82,7 +82,7 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
     if (!secili) return;
     const temizSifre = yeniSifre.trim();
     if (temizSifre.length < 6) {
-      onNotify?.('error', 'Şube şifresi en az 6 karakter olmalı.');
+      onNotify?.('error', 'Şube şifresi en az 4 karakter olmalı.');
       return;
     }
 
@@ -300,11 +300,11 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
                     placeholder="Yeni şifre"
                     autoComplete="new-password"
                   />
-                  <button className="btn btn-secondary btn-sm" type="submit" disabled={islemde || yeniSifre.trim().length < 6}>
+                  <button className="btn btn-secondary btn-sm" type="submit" disabled={islemde || yeniSifre.trim().length < 4}>
                     Sıfırla
                   </button>
                 </div>
-                <div className="branch-password-hint">Yeni şifre en az 6 karakter olmalı.</div>
+                <div className="branch-password-hint">Yeni şifre en az 4 karakter olmalı.</div>
               </form>
 
               <div className="branch-toggle-list">
