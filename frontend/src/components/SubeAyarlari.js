@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import {
   Ban,
@@ -20,9 +20,9 @@ function durum(sube) {
   return { label: 'Aktif', cls: 'active' };
 }
 
-export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, onConfirm }) {
+export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, onConfirm, seciliSubeId, onSeciliSubeDegisti }) {
   const [arama, setArama] = useState('');
-  const [seciliId, setSeciliId] = useState(subeler[0]?.id || null);
+  const [seciliId, setSeciliId] = useState(seciliSubeId || subeler[0]?.id || null);
   const [islemde, setIslemde] = useState(false);
   const [yeniSifre, setYeniSifre] = useState('');
   const [adminPanelAcik, setAdminPanelAcik] = useState(false);
@@ -39,6 +39,16 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
 
   const secili = subeler.find(s => s.id === seciliId) || filtreliSubeler[0] || subeler[0] || null;
   const seciliDurum = secili ? durum(secili) : null;
+
+  useEffect(() => {
+    const id = seciliSubeId || subeler[0]?.id || null;
+    setSeciliId(current => (current && subeler.some(s => s.id === current) ? current : id));
+  }, [seciliSubeId, subeler]);
+
+  const subeSec = (id) => {
+    setSeciliId(id);
+    onSeciliSubeDegisti?.(id);
+  };
 
   const guncelle = async (id, data) => {
     setIslemde(true);
@@ -193,7 +203,7 @@ export default function SubeAyarlari({ subeler, onYenile, onYeniSube, onNotify, 
               <button
                 key={s.id}
                 className={`branch-row ${secili?.id === s.id ? 'selected' : ''}`}
-                onClick={() => setSeciliId(s.id)}
+                onClick={() => subeSec(s.id)}
               >
                 <span className="branch-row-icon"><Store size={21} /></span>
                 <span className="branch-row-main">

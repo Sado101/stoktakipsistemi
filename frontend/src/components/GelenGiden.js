@@ -187,11 +187,18 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
     seciliHareketler.forEach(h => {
       const key = h.tarih_iso || h.tarih;
       if (!gruplar.has(key)) {
-        gruplar.set(key, { key, tarih: h.tarih, tarih_iso: h.tarih_iso, giris: 0, cikis: 0, kayitlar: [] });
+        gruplar.set(key, { key, tarih: h.tarih, tarih_iso: h.tarih_iso, giris: 0, cikis: 0, girisDeger: 0, cikisDeger: 0, kayitlar: [] });
       }
       const grup = gruplar.get(key);
-      if (h.hareket_turu === 'giris') grup.giris += Number(h.miktar || 0);
-      if (h.hareket_turu === 'cikis') grup.cikis += Number(h.miktar || 0);
+      const deger = Number(h.hareket_degeri ?? (Number(h.miktar || 0) * Number(h.birim_fiyat || 0)));
+      if (h.hareket_turu === 'giris') {
+        grup.giris += Number(h.miktar || 0);
+        grup.girisDeger += deger;
+      }
+      if (h.hareket_turu === 'cikis') {
+        grup.cikis += Number(h.miktar || 0);
+        grup.cikisDeger += deger;
+      }
       grup.kayitlar.push(h);
     });
     return [...gruplar.values()]
@@ -556,7 +563,9 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                   <tr>
                     <th>Tarih</th>
                     <th style={{ textAlign: 'center' }}>Giriş</th>
+                    <th style={{ textAlign: 'right' }}>Giriş Tutarı</th>
                     <th style={{ textAlign: 'center' }}>Çıkış</th>
+                    <th style={{ textAlign: 'right' }}>Çıkış Tutarı</th>
                     <th style={{ textAlign: 'right' }}>Fiyat</th>
                     <th style={{ textAlign: 'right' }}>Tutar</th>
                     <th>Açıklama</th>
@@ -566,7 +575,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                 <tbody>
                   {gunlukHareketler.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>
+                      <td colSpan={9} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>
                         Bu ürün için seçili ayda hareket yok.
                       </td>
                     </tr>
@@ -583,8 +592,14 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                           <td style={{ textAlign: 'center', color: '#059669', fontWeight: 800 }}>
                             {g.giris > 0 ? sayi(g.giris) : '-'}
                           </td>
+                          <td style={{ textAlign: 'right', color: '#059669', fontWeight: 800 }}>
+                            {g.girisDeger > 0 ? fiyatFmt(g.girisDeger) : '-'}
+                          </td>
                           <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 800 }}>
                             {g.cikis > 0 ? sayi(g.cikis) : '-'}
+                          </td>
+                          <td style={{ textAlign: 'right', color: '#dc2626', fontWeight: 800 }}>
+                            {g.cikisDeger > 0 ? fiyatFmt(g.cikisDeger) : '-'}
                           </td>
                           <td></td>
                           <td></td>
@@ -597,8 +612,14 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                             <td style={{ textAlign: 'center', color: '#059669', fontWeight: 700 }}>
                               {h.hareket_turu === 'giris' ? sayi(h.miktar) : '-'}
                             </td>
+                            <td style={{ textAlign: 'right', color: '#059669', fontWeight: 700 }}>
+                              {h.hareket_turu === 'giris' ? fiyatFmt(h.hareket_degeri) : '-'}
+                            </td>
                             <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
                               {h.hareket_turu === 'cikis' ? sayi(h.miktar) : '-'}
+                            </td>
+                            <td style={{ textAlign: 'right', color: '#dc2626', fontWeight: 700 }}>
+                              {h.hareket_turu === 'cikis' ? fiyatFmt(h.hareket_degeri) : '-'}
                             </td>
                             <td style={{ textAlign: 'right', fontWeight: 700 }}>{fiyatFmt(h.birim_fiyat)}</td>
                             <td style={{ textAlign: 'right', fontWeight: 700 }}>{fiyatFmt(h.hareket_degeri)}</td>
@@ -650,8 +671,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                         <div className="mobile-movement-note">{g.kayitlar.length} kayıt</div>
                       </div>
                       <div className="mobile-movement-day-totals">
-                        {g.giris > 0 && <span className="amount-in"><em>Giriş</em><strong>+{sayi(g.giris)}</strong></span>}
-                        {g.cikis > 0 && <span className="amount-out"><em>Çıkış</em><strong>-{sayi(g.cikis)}</strong></span>}
+                        {g.giris > 0 && <span className="amount-in"><em>Giriş</em><strong>+{sayi(g.giris)}</strong><small>{fiyatFmt(g.girisDeger)}</small></span>}
+                        {g.cikis > 0 && <span className="amount-out"><em>Çıkış</em><strong>-{sayi(g.cikis)}</strong><small>{fiyatFmt(g.cikisDeger)}</small></span>}
                       </div>
                     </button>
                     {acik && (

@@ -20,6 +20,10 @@ function sayi(value) {
   return Number(value || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
 }
 
+function fiyatFmt(value) {
+  return `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function tarihIso() {
   return new Date().toISOString().split('T')[0];
 }
@@ -34,6 +38,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
   const [islemTuru, setIslemTuru] = useState('giris');
   const [barkod, setBarkod] = useState('');
   const [miktar, setMiktar] = useState('1');
+  const [fiyat, setFiyat] = useState('');
   const [tarih, setTarih] = useState(tarihIso());
   const [seciliUrun, setSeciliUrun] = useState(null);
   const [liste, setListe] = useState([]);
@@ -87,8 +92,9 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
 
     setBarkod(temizKod);
     setSeciliUrun(urun);
+    setFiyat(String(urun.fiyat ?? ''));
     window.setTimeout(() => miktarRef.current?.focus(), 0);
-    onNotify?.('success', `${urun.ad} bulundu. Miktarı girin.`);
+    onNotify?.('success', `${urun.ad} bulundu. Miktar ve fiyatı kontrol edin.`);
     return urun;
   };
 
@@ -106,12 +112,18 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
       onNotify?.('error', 'Miktar 0’dan büyük olmalı.');
       return;
     }
+    const temizFiyat = parseFloat(String(fiyat).replace(',', '.'));
+    if (islemTuru === 'giris' && (Number.isNaN(temizFiyat) || temizFiyat < 0)) {
+      onNotify?.('error', 'Giriş için fiyat zorunludur.');
+      return;
+    }
 
     setListe(items => [
       {
         tempId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         urun,
         miktar: temizMiktar,
+        birim_fiyat: islemTuru === 'giris' ? temizFiyat : Number(urun.fiyat || 0),
         hareket_turu: islemTuru,
         tarih,
       },
@@ -119,6 +131,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     ]);
     setBarkod('');
     setMiktar('1');
+    setFiyat('');
     setSeciliUrun(null);
     onNotify?.('success', `${urun.ad} listeye eklendi.`);
   };
@@ -140,7 +153,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
           urun_id: item.urun.id,
           hareket_turu: item.hareket_turu,
           miktar: item.miktar,
-          birim_fiyat: Number(item.urun.fiyat || 0),
+          birim_fiyat: Number(item.birim_fiyat ?? item.urun.fiyat ?? 0),
           tarih: item.tarih,
           aciklama: '',
           islem_kaynagi: 'barkod',
@@ -250,7 +263,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
                 <Keyboard size={18} />
                 <input
                   value={barkod}
-                  onChange={e => { setBarkod(e.target.value); setSeciliUrun(null); }}
+                  onChange={e => { setBarkod(e.target.value); setSeciliUrun(null); setFiyat(''); }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !seciliUrun) {
                       e.preventDefault();
@@ -292,7 +305,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
                 <div className="barcode-found-icon"><PackageCheck size={22} /></div>
                 <div>
                   <strong>{seciliUrun.ad}</strong>
-                  <span>Barkod: {seciliUrun.urun_id} · Güncel stok: {sayi(seciliUrun.guncel_stok)}</span>
+                  <span>Barkod: {seciliUrun.urun_id} · Güncel stok: {sayi(seciliUrun.guncel_stok)} · Son fiyat: {fiyatFmt(seciliUrun.fiyat)}</span>
                 </div>
               </div>
             )}
@@ -301,6 +314,12 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
               <label>2. Miktar</label>
               <input ref={miktarRef} value={miktar} onChange={e => setMiktar(e.target.value)} type="number" step="0.01" min="0.01" inputMode="decimal" disabled={!seciliUrun} />
             </div>
+            {islemTuru === 'giris' && (
+              <div className="form-group">
+                <label>3. Fiyat</label>
+                <input value={fiyat} onChange={e => setFiyat(e.target.value)} type="number" step="0.01" min="0" inputMode="decimal" disabled={!seciliUrun} placeholder="0.00" />
+              </div>
+            )}
             <div className="form-group">
               <label>Tarih</label>
               <input type="date" value={tarih} onChange={e => setTarih(e.target.value)} />
@@ -335,6 +354,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
                 <div>
                   <strong>{item.urun.ad}</strong>
                   <span>{item.urun.urun_id} · {item.tarih.split('-').reverse().join('.')}</span>
+                  <span>Fiyat: {fiyatFmt(item.birim_fiyat)} · Tutar: {fiyatFmt(Number(item.miktar || 0) * Number(item.birim_fiyat || 0))}</span>
                 </div>
                 <div className="barcode-transfer-meta">
                   <em>{item.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'}</em>

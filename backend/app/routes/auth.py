@@ -125,7 +125,10 @@ def login():
         session['username'] = _admin_username()
         return jsonify({'role': 'admin', 'username': _admin_username()})
 
-    sube = Sube.query.filter_by(kod=username).first()
+    username_lc = username.lower()
+    sube = Sube.query.filter(db.func.lower(Sube.kod) == username_lc).first()
+    if not sube:
+        sube = Sube.query.filter(db.func.lower(Sube.isim) == username_lc).first()
     if sube and sube.sifre == password:
         hata = _sube_erisim_hatasi(sube)
         if hata:

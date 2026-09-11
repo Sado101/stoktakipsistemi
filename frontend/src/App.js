@@ -85,6 +85,7 @@ export default function App() {
   const [sayfa, setSayfa] = useState('stok-bilgisi');
   const [subeler, setSubeler] = useState([]);
   const [secilenSube, setSecilenSube] = useState('');
+  const [ayarlarSubeId, setAyarlarSubeId] = useState(null);
   const [yenile, setYenile] = useState(0);
   const [subeModal, setSubeModal] = useState(false);
   const [subeForm, setSubeForm] = useState({ kod: '', isim: '', sifre: '' });
@@ -457,8 +458,16 @@ export default function App() {
           {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
           {sayfa === 'arsiv'          && <Arsiv secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}
           {sayfa === 'sube-ayarlari' && kullanici.role === 'admin' && <>
-            <SubeAyarlari subeler={subeler} onYenile={subeleriGetir} onYeniSube={() => setSubeModal(true)} onNotify={bildir} onConfirm={onayIste} />
-            <CalisanYonetimi subeId={Number(secilenSube) || null} onNotify={bildir} onConfirm={onayIste} />
+            <SubeAyarlari
+              subeler={subeler}
+              seciliSubeId={ayarlarSubeId || Number(secilenSube) || null}
+              onSeciliSubeDegisti={setAyarlarSubeId}
+              onYenile={subeleriGetir}
+              onYeniSube={() => setSubeModal(true)}
+              onNotify={bildir}
+              onConfirm={onayIste}
+            />
+            <CalisanYonetimi subeId={ayarlarSubeId || Number(secilenSube) || subeler[0]?.id || null} onNotify={bildir} onConfirm={onayIste} />
           </>}
           {sayfa === 'sube-ayarlari' && kullanici.role === 'sube' &&
             <CalisanYonetimi subeId={kullanici.sube_id} aktifCalisanId={kullanici.employee_id} onNotify={bildir} onConfirm={onayIste} />}
