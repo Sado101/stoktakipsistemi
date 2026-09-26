@@ -32,6 +32,8 @@ def _database_uri(project_root):
     if uri:
         if uri.startswith('postgres://'):
             uri = 'postgresql://' + uri[len('postgres://'):]
+        if uri.startswith('postgresql://'):
+            uri = 'postgresql+psycopg2://' + uri[len('postgresql://'):]
         if 'supabase.com' in uri and 'sslmode=' not in uri:
             separator = '&' if '?' in uri else '?'
             uri = f'{uri}{separator}sslmode=require'
