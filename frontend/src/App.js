@@ -191,7 +191,10 @@ export default function App() {
     setOturumMesaji('');
     sonAktiviteRef.current = Date.now();
     setKullanici(data);
-    if (data.role === 'sube') setSecilenSube(String(data.sube_id));
+    if (data.role === 'sube') {
+      setSecilenSube(String(data.sube_id));
+      setAyarlarSubeId(null);
+    }
     if (data.role !== 'admin' && SAYFALAR.find(s => s.key === sayfa)?.adminOnly) {
       setSayfa('stok-bilgisi');
     }
@@ -203,6 +206,7 @@ export default function App() {
     setOturumMesaji('');
     setKullanici(null);
     setSecilenSube('');
+    setAyarlarSubeId(null);
     setSubeler([]);
     try { await api.logout(); } catch (e) {}
     finally { cikisYapiliyorRef.current = false; }
@@ -212,6 +216,7 @@ export default function App() {
     try { await api.logout(); } catch (e) {}
     setKullanici(null);
     setSecilenSube('');
+    setAyarlarSubeId(null);
     setDonemAcik(false);
     setKilitModal(false);
     setSubeModal(false);
@@ -318,6 +323,7 @@ export default function App() {
     return <CalisanGirisi subeAdi={kullanici.branch_name || kullanici.username} onGiris={girisYap} onCikis={cikisYap} />;
   }
 
+  const aktifSubeId = kullanici.role === 'sube' ? String(kullanici.sube_id || '') : secilenSube;
   const gorunenSayfalar = SAYFALAR.filter(s => !s.adminOnly || kullanici.role === 'admin');
   const sayfaLabel = gorunenSayfalar.find(s => s.key === sayfa)?.label || '';
 
@@ -452,11 +458,11 @@ export default function App() {
       {/* Ana içerik */}
       <main className="main">
         <div className="page-wrap">
-          {sayfa === 'stok-bilgisi'   && <StokBilgisi secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
-          {sayfa === 'stok-duzenleme' && <StokDuzenleme subeler={subeler} secilenSube={secilenSube} onGuncelle={tetikleYenile} kullanici={kullanici} onNotify={bildir} onConfirm={onayIste} />}
-          {sayfa === 'gelen-giden'    && <GelenGiden secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} onConfirm={onayIste} />}
-          {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={secilenSube} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
-          {sayfa === 'arsiv'          && <Arsiv secilenSube={secilenSube} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}
+          {sayfa === 'stok-bilgisi'   && <StokBilgisi secilenSube={aktifSubeId} yenile={yenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
+          {sayfa === 'stok-duzenleme' && <StokDuzenleme subeler={subeler} secilenSube={aktifSubeId} onGuncelle={tetikleYenile} kullanici={kullanici} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'gelen-giden'    && <GelenGiden secilenSube={aktifSubeId} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={aktifSubeId} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
+          {sayfa === 'arsiv'          && <Arsiv secilenSube={aktifSubeId} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}
           {sayfa === 'sube-ayarlari' && kullanici.role === 'admin' && <>
             <SubeAyarlari
               subeler={subeler}
