@@ -41,9 +41,14 @@ export async function supabaseFetch(env, path, options = {}) {
   return response.json();
 }
 
+export async function selectOne(env, path) {
+  const rows = await supabaseFetch(env, path);
+  return Array.isArray(rows) ? rows[0] || null : rows;
+}
+
 export function handleApiError(error) {
   if (error instanceof ApiError) {
-    return json({ error: error.message, details: error.details || undefined }, error.status);
+    return json({ error: error.message, ...(error.details || {}) }, error.status);
   }
   console.error(error);
   return json({ error: 'Beklenmeyen bir hata oluştu' }, 500);

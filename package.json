@@ -1,8 +1,12 @@
 {
   "name": "stoktakip-cloudflare-deploy",
   "private": true,
+  "type": "module",
   "scripts": {
     "deploy:worker": "wrangler deploy --config cloudflare-worker/wrangler.toml"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
   },
   "devDependencies": {
     "wrangler": "^4.40.0"

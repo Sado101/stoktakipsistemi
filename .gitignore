@@ -26,6 +26,7 @@ backend/stok_v2.db
 instance/
 
 # Node / React
+node_modules/
 frontend/node_modules/
 frontend/build/
 frontend/.cache/
