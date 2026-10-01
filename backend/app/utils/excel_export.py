@@ -88,6 +88,10 @@ def _product_row(urun, all_hareketler, ay, yil):
     devreden, _, _, _ = urun.donem_stoklari(ay, yil)
     fiyat = float(urun.fiyat or 0)
     guncel = devreden + giris - cikis
+    ay_int, yil_int = int(ay), int(yil)
+    from datetime import date
+    baslangic = date(yil_int, ay_int, 1)
+    bitis = date(yil_int + 1, 1, 1) if ay_int == 12 else date(yil_int, ay_int + 1, 1)
     gelen_deger = sum(
         float(h.miktar or 0) * float(h.birim_fiyat if h.birim_fiyat is not None else fiyat)
         for h in movements if h.hareket_turu == "giris"
@@ -112,10 +116,10 @@ def _product_row(urun, all_hareketler, ay, yil):
         "cikis": cikis,
         "guncel": guncel,
         "fiyat": fiyat,
-        "devreden_deger": devreden * fiyat,
+        "devreden_deger": urun.fifo_stok_degeri(before_date=baslangic),
         "gelen_deger": gelen_deger,
         "kullanilan_deger": kullanilan_deger,
-        "stok_degeri": guncel * fiyat,
+        "stok_degeri": urun.fifo_stok_degeri(before_date=bitis),
         "durum": "Stok Yok" if guncel <= 0 else "Kritik" if guncel <= 5 else "Normal",
         "son_hareket": son_hareket,
     }

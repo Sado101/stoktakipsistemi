@@ -76,9 +76,9 @@ export default function Arsiv({ secilenSube, yenile, ay, yil, onNotify }) {
 
   const ciro = ciroData?.ciro || 0;
   const adisyon = ciroData?.adisyon || 0;
-  const stokDegeri = urunler.reduce((acc, u) => acc + (u.guncel_stok * u.fiyat), 0);
+  const stokDegeri = urunler.reduce((acc, u) => acc + Number(u.toplam_deger ?? (u.guncel_stok * u.fiyat)), 0);
   const kullanilanMalDegeri = urunler.reduce((acc, u) => acc + Number(u.kullanilan_deger ?? (u.giden * u.fiyat)), 0);
-  const devredenMalDegeri = urunler.reduce((acc, u) => acc + (u.devreden_stok * u.fiyat), 0);
+  const devredenMalDegeri = urunler.reduce((acc, u) => acc + Number(u.devreden_deger ?? (u.devreden_stok * u.fiyat)), 0);
   const kullanimYuzdesi = ciro > 0 ? Math.round((kullanilanMalDegeri / ciro) * 100) : null;
   const girisSayisi = hareketler.filter(h => h.hareket_turu === 'giris').length;
   const cikisSayisi = hareketler.filter(h => h.hareket_turu === 'cikis').length;

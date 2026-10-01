@@ -1,0 +1,10 @@
+{
+  "name": "stoktakip-cloudflare-deploy",
+  "private": true,
+  "scripts": {
+    "deploy:worker": "wrangler deploy --config cloudflare-worker/wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

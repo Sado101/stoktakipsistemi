@@ -83,6 +83,7 @@ class Urun(db.Model):
     kategori = db.Column(db.String(50), nullable=False, default='diger')
     sube_id = db.Column(db.Integer, db.ForeignKey('subeler.id'), nullable=False)
     devreden_stok = db.Column(db.Float, nullable=False, default=0.0)
+    devreden_birim_fiyat = db.Column(db.Float, nullable=True)
     hareketler = db.relationship('StokHareketi', backref='urun', lazy=True)
 
     __table_args__ = (db.UniqueConstraint('sube_id', 'urun_id', name='uq_urun_sube_urun_id'),)
@@ -128,8 +129,41 @@ class Urun(db.Model):
             query = query.filter(StokHareketi.tarih >= baslangic, StokHareketi.tarih < bitis)
         return round(float(query.scalar() or 0), 2)
 
+    def fifo_stok_degeri(self, before_date=None):
+        """FIFO'ya göre belirtilen tarihten önce elde kalan stok değerini hesaplar."""
+        layers = []
+        devreden_miktar = float(self.devreden_stok or 0)
+        devreden_fiyat = float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0))
+        if devreden_miktar > 0:
+            layers.append({'miktar': devreden_miktar, 'fiyat': devreden_fiyat})
+
+        query = StokHareketi.query.filter(StokHareketi.urun_id == self.id)
+        if before_date is not None:
+            query = query.filter(StokHareketi.tarih < before_date)
+        hareketler = query.order_by(StokHareketi.tarih.asc(), StokHareketi.id.asc()).all()
+
+        for hareket in hareketler:
+            miktar = float(hareket.miktar or 0)
+            if miktar <= 0:
+                continue
+            if hareket.hareket_turu == 'giris':
+                fiyat = float(hareket.birim_fiyat if hareket.birim_fiyat is not None else (self.fiyat or 0))
+                layers.append({'miktar': miktar, 'fiyat': fiyat})
+            elif hareket.hareket_turu == 'cikis':
+                kalan = miktar
+                for layer in layers:
+                    if kalan <= 0:
+                        break
+                    alinacak = min(float(layer['miktar'] or 0), kalan)
+                    layer['miktar'] = float(layer['miktar'] or 0) - alinacak
+                    kalan -= alinacak
+                layers = [l for l in layers if float(l['miktar'] or 0) > 0.0000001]
+
+        return round(sum(float(l['miktar'] or 0) * float(l['fiyat'] or 0) for l in layers), 2)
+
     def to_dict(self, ay=None, yil=None):
         from sqlalchemy import func, extract
+        from datetime import date
         query_giris = db.session.query(func.coalesce(func.sum(StokHareketi.miktar), 0)).filter(
             StokHareketi.urun_id == self.id,
             StokHareketi.hareket_turu == 'giris'
@@ -138,18 +172,28 @@ class Urun(db.Model):
             StokHareketi.urun_id == self.id,
             StokHareketi.hareket_turu == 'cikis'
         )
+        devreden_deger = None
+        toplam_deger = None
         if ay and yil:
             devreden, gelen, giden, guncel = self.donem_stoklari(ay, yil)
+            ay_int, yil_int = int(ay), int(yil)
+            baslangic = date(yil_int, ay_int, 1)
+            bitis = date(yil_int + 1, 1, 1) if ay_int == 12 else date(yil_int, ay_int + 1, 1)
+            devreden_deger = self.fifo_stok_degeri(before_date=baslangic)
+            toplam_deger = self.fifo_stok_degeri(before_date=bitis)
         else:
             gelen = float(query_giris.scalar() or 0)
             giden = float(query_cikis.scalar() or 0)
             devreden = float(self.devreden_stok or 0)
             guncel = devreden + gelen - giden
+            devreden_deger = round(devreden * float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0)), 2)
+            toplam_deger = self.fifo_stok_degeri()
         return {
             'id': self.id,
             'urun_id': self.urun_id,
             'ad': self.ad,
             'fiyat': self.fiyat,
+            'devreden_birim_fiyat': float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0)),
             'kategori': self.kategori,
             'sube_id': self.sube_id,
             'sube_isim': self.sube.isim if self.sube else '',
@@ -157,9 +201,10 @@ class Urun(db.Model):
             'gelen': float(gelen),
             'giden': float(giden),
             'guncel_stok': float(guncel),
+            'devreden_deger': devreden_deger,
             'gelen_deger': self.hareket_degeri('giris', ay=ay, yil=yil),
             'kullanilan_deger': self.hareket_degeri('cikis', ay=ay, yil=yil),
-            'toplam_deger': round(float(guncel) * self.fiyat, 2)
+            'toplam_deger': toplam_deger
         }
 
 class StokHareketi(db.Model):
@@ -169,6 +214,7 @@ class StokHareketi(db.Model):
     hareket_turu = db.Column(db.String(10), nullable=False)
     miktar = db.Column(db.Float, nullable=False)
     birim_fiyat = db.Column(db.Float, nullable=True)
+    fifo_detay = db.Column(db.Text, nullable=True)
     tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     aciklama = db.Column(db.String(250))
     islemi_yapan = db.Column(db.String(100), nullable=True)
@@ -180,6 +226,13 @@ class StokHareketi(db.Model):
         if olusturma and olusturma.tzinfo is None:
             olusturma = olusturma.replace(tzinfo=timezone.utc)
         yerel_olusturma = olusturma.astimezone(ZoneInfo('Europe/Istanbul')) if olusturma else None
+        fifo_detay = []
+        if self.fifo_detay:
+            try:
+                fifo_detay = json.loads(self.fifo_detay)
+            except Exception:
+                fifo_detay = []
+
         return {
             'id': self.id,
             'urun_id': self.urun_id,
@@ -188,6 +241,7 @@ class StokHareketi(db.Model):
             'miktar': self.miktar,
             'birim_fiyat': float(self.birim_fiyat if self.birim_fiyat is not None else (self.urun.fiyat if self.urun else 0)),
             'hareket_degeri': round(float(self.miktar or 0) * float(self.birim_fiyat if self.birim_fiyat is not None else (self.urun.fiyat if self.urun else 0)), 2),
+            'fifo_detay': fifo_detay,
             'tarih': self.tarih.strftime('%d.%m.%Y'),
             'tarih_iso': self.tarih.strftime('%Y-%m-%d'),
             'saat': yerel_olusturma.strftime('%H:%M') if yerel_olusturma else '',

@@ -1,0 +1,686 @@
+<style>
+  .stok-design-carousel {
+    width: 100%;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .stok-design-carousel [data-variant] {
+    min-height: 850px;
+  }
+
+  .stock-mock {
+    --ink: light-dark(#23251f, #f5f0e6);
+    --soft-ink: light-dark(#75786f, #b9b2a7);
+    --paper: light-dark(#f4efe5, #171916);
+    --panel: light-dark(#fffaf0, #22231e);
+    --panel-2: light-dark(#fbf3e4, #28271f);
+    --line: light-dark(#e3d8c8, #3b382f);
+    --green: #2f6f4e;
+    --green-2: #16875c;
+    --red: #c94840;
+    --amber: #c8882e;
+    --blue: #396dbe;
+    color: var(--ink);
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--line) 32%, transparent) 1px, transparent 1px),
+      linear-gradient(color-mix(in srgb, var(--line) 32%, transparent) 1px, transparent 1px),
+      var(--paper);
+    background-size: 34px 34px;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.16);
+  }
+
+  .stock-mock * { box-sizing: border-box; }
+
+  .mock-shell {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    min-height: 820px;
+  }
+
+  .mock-side {
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    border-right: 1px solid var(--line);
+    padding: 26px 20px;
+  }
+
+  .mock-logo {
+    width: 116px;
+    height: 116px;
+    margin: 0 auto 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 22px;
+    background: light-dark(#fffdf7, #11130f);
+    border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    font-family: Georgia, serif;
+    font-size: 52px;
+    letter-spacing: -8px;
+  }
+
+  .mock-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--soft-ink);
+    margin: 22px 0 8px;
+    font-weight: 700;
+  }
+
+  .mock-select,
+  .mock-menu-item,
+  .mock-input,
+  .mock-button {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 14px;
+  }
+
+  .mock-select {
+    padding: 13px 14px;
+    font-weight: 650;
+  }
+
+  .mock-menu {
+    display: grid;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .mock-menu-item {
+    padding: 13px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: var(--soft-ink);
+    font-weight: 650;
+  }
+
+  .mock-menu-item.active {
+    background: color-mix(in srgb, var(--green) 15%, var(--panel));
+    color: var(--green);
+    border-color: color-mix(in srgb, var(--green) 35%, var(--line));
+  }
+
+  .mock-main {
+    padding: 32px;
+  }
+
+  .mock-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 26px;
+  }
+
+  .mock-title h2 {
+    margin: 0;
+    font-size: 30px;
+    letter-spacing: -.04em;
+  }
+
+  .mock-title p {
+    margin: 7px 0 0;
+    color: var(--soft-ink);
+  }
+
+  .mock-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .mock-button {
+    padding: 13px 16px;
+    font-weight: 750;
+  }
+
+  .mock-button.primary {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+  }
+
+  .mock-button.danger {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+
+  .mock-card {
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+  }
+
+  .mock-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .mock-kpi {
+    padding: 18px;
+  }
+
+  .mock-kpi span {
+    display: block;
+    color: var(--soft-ink);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: .12em;
+    font-weight: 800;
+  }
+
+  .mock-kpi strong {
+    display: block;
+    margin-top: 10px;
+    font-size: 24px;
+    letter-spacing: -.03em;
+  }
+
+  .mock-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .mock-input {
+    flex: 1;
+    min-width: 230px;
+    padding: 15px 16px;
+    color: var(--soft-ink);
+  }
+
+  .mock-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .mock-pill {
+    border-radius: 999px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--soft-ink);
+    font-weight: 700;
+  }
+
+  .mock-pill.active {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+  }
+
+  .mock-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .mock-table th,
+  .mock-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .mock-table th {
+    color: var(--soft-ink);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .mock-table td {
+    font-weight: 650;
+  }
+
+  .pos { color: var(--green-2); }
+  .neg { color: var(--red); }
+  .muted { color: var(--soft-ink); }
+
+  .notebook .mock-side {
+    background:
+      linear-gradient(transparent 31px, color-mix(in srgb, var(--line) 52%, transparent) 32px),
+      var(--panel);
+    background-size: 100% 32px;
+  }
+
+  .notebook .ledger-card {
+    padding: 20px;
+    background:
+      linear-gradient(transparent 35px, color-mix(in srgb, var(--line) 45%, transparent) 36px),
+      var(--panel);
+    background-size: 100% 36px;
+  }
+
+  .notebook .hand-note {
+    display: inline-block;
+    transform: rotate(-2deg);
+    padding: 7px 12px;
+    border: 2px solid var(--green);
+    border-radius: 999px;
+    color: var(--green);
+    font-family: "Comic Sans MS", "Bradley Hand", cursive;
+    font-weight: 700;
+  }
+
+  .operations {
+    --paper: light-dark(#eef1ec, #121614);
+    --panel: light-dark(#ffffff, #1d221f);
+    --panel-2: light-dark(#f7f8f4, #242a26);
+    --green: #245d46;
+  }
+
+  .operations .mock-shell {
+    grid-template-columns: 88px 1fr;
+  }
+
+  .operations .mock-side {
+    padding: 22px 14px;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .operations .mini-logo {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 10px;
+    border-radius: 16px;
+    background: var(--green);
+    color: #fff;
+    font-family: Georgia, serif;
+    font-size: 25px;
+  }
+
+  .operations .icon-dot {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    color: var(--soft-ink);
+    font-weight: 800;
+  }
+
+  .operations .icon-dot.active {
+    background: color-mix(in srgb, var(--green) 14%, var(--panel));
+    color: var(--green);
+  }
+
+  .operations .product-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .operations .product-card {
+    padding: 18px;
+    min-height: 150px;
+  }
+
+  .operations .product-card h3 {
+    margin: 0 0 5px;
+    font-size: 18px;
+  }
+
+  .operations .product-line {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .operations .product-line span {
+    display: block;
+    color: var(--soft-ink);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .operations .product-line strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 21px;
+  }
+
+  .receipt {
+    --paper: light-dark(#e9e3d3, #131313);
+    --panel: light-dark(#fffdf6, #22201a);
+    --panel-2: light-dark(#f3ead8, #2b261d);
+    --line: light-dark(#d6c7aa, #4a4235);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .receipt .mock-shell {
+    grid-template-columns: 250px 1fr;
+  }
+
+  .receipt .mock-title h2 {
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .receipt .paper-stack {
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .receipt-ticket {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px;
+    box-shadow: 7px 7px 0 color-mix(in srgb, var(--line) 48%, transparent);
+  }
+
+  .receipt-ticket h3 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.03em;
+  }
+
+  .receipt-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 18px;
+    padding: 13px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .receipt-row strong { font-weight: 800; }
+  .receipt-row span { color: var(--soft-ink); }
+
+  .receipt-summary {
+    display: grid;
+    gap: 14px;
+  }
+
+  .receipt-summary .mock-card {
+    padding: 18px;
+    border-radius: 12px;
+  }
+
+  .receipt-summary strong {
+    display: block;
+    font-size: 28px;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 760px) {
+    .stok-design-carousel [data-variant] { min-height: 1180px; }
+    .mock-shell,
+    .operations .mock-shell,
+    .receipt .mock-shell {
+      grid-template-columns: 1fr;
+    }
+    .mock-side {
+      display: none;
+    }
+    .mock-main {
+      padding: 18px;
+    }
+    .mock-top {
+      display: block;
+    }
+    .mock-actions {
+      justify-content: stretch;
+      margin-top: 16px;
+    }
+    .mock-button {
+      flex: 1;
+    }
+    .mock-kpis,
+    .operations .product-grid,
+    .receipt .paper-stack {
+      grid-template-columns: 1fr;
+    }
+    .mock-toolbar {
+      display: block;
+    }
+    .mock-input {
+      width: 100%;
+      min-width: 0;
+      margin-bottom: 10px;
+    }
+    .mock-card {
+      overflow: hidden;
+    }
+    .mock-table {
+      min-width: 760px;
+    }
+    .mock-table-wrap {
+      overflow-x: auto;
+    }
+  }
+</style>
+
+<div class="viz-carousel stok-design-carousel" aria-label="Stok takip tasarım alternatifleri" data-previous-label="Önceki" data-next-label="Sonraki">
+  <section data-variant="Defter" aria-label="Defter tarzı stok takip tasarımı">
+    <div class="stock-mock notebook">
+      <div class="mock-shell">
+        <aside class="mock-side">
+          <div class="mock-logo">SK</div>
+          <div class="mock-label">Şube</div>
+          <div class="mock-select">Beşiktaş · CJN İstanbul</div>
+          <div class="mock-label">Dönem</div>
+          <div class="mock-select">Eylül 2026</div>
+          <nav class="mock-menu" aria-label="Menü">
+            <div class="mock-menu-item">📋 Stok</div>
+            <div class="mock-menu-item active">↕ Hareketler</div>
+            <div class="mock-menu-item">▥ Barkod</div>
+            <div class="mock-menu-item">▣ Ürünler</div>
+            <div class="mock-menu-item">▤ Arşiv</div>
+          </nav>
+        </aside>
+        <main class="mock-main">
+          <div class="mock-top">
+            <div class="mock-title">
+              <h2>Gelen / Giden</h2>
+              <p>Eylül 2026 — ürün hareketleri ve FIFO maliyet takibi</p>
+            </div>
+            <div class="mock-actions">
+              <button class="mock-button">Barkod ile ara</button>
+              <button class="mock-button primary">Giriş Ekle</button>
+              <button class="mock-button danger">Çıkış Ekle</button>
+            </div>
+          </div>
+
+          <div class="mock-kpis">
+            <div class="mock-card mock-kpi"><span>Stok değeri</span><strong>₺933.431</strong></div>
+            <div class="mock-card mock-kpi"><span>Kullanılan</span><strong class="neg">₺155.884</strong></div>
+            <div class="mock-card mock-kpi"><span>Ürün</span><strong>89</strong></div>
+            <div class="mock-card mock-kpi"><span>Adisyon</span><strong>3.049</strong></div>
+            <div class="mock-card mock-kpi"><span>Kullanım</span><strong class="pos">%24</strong></div>
+          </div>
+
+          <div class="mock-pills">
+            <span class="mock-pill active">Tümü</span>
+            <span class="mock-pill">İçecek</span>
+            <span class="mock-pill">Et</span>
+            <span class="mock-pill">Sos</span>
+            <span class="mock-pill">Ambalaj</span>
+            <span class="mock-pill">Kuru Gıda</span>
+          </div>
+
+          <section class="mock-card ledger-card">
+            <div class="mock-toolbar">
+              <div class="mock-input">Ürün adı, ID veya barkod okut…</div>
+              <button class="mock-button primary">Ara</button>
+              <span class="hand-note">FIFO açık</span>
+            </div>
+            <div class="mock-table-wrap">
+              <table class="mock-table">
+                <thead>
+                  <tr><th>Ürün</th><th>Devir</th><th>Giriş</th><th>Çıkış</th><th>Güncel</th><th>Son fiyat</th><th>Stok değeri</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>KANAT <span class="muted">0027</span></td><td>7</td><td class="pos">+0</td><td class="neg">-6</td><td>1</td><td>₺258,26</td><td>₺258,26</td></tr>
+                  <tr><td>TAVUK <span class="muted">0026</span></td><td>224</td><td class="pos">+311,65</td><td class="neg">-0</td><td>535,65</td><td>₺151,50</td><td>₺81.150,97</td></tr>
+                  <tr><td>COLA <span class="muted">5000112664478</span></td><td>133</td><td class="pos">+0</td><td class="neg">-49</td><td>84</td><td>₺872,19</td><td>₺73.263,96</td></tr>
+                  <tr><td>FUSE TEA ŞEFTALİ</td><td>103</td><td class="pos">+0</td><td class="neg">-28</td><td>75</td><td>₺436,99</td><td>₺32.774,25</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section data-variant="Operasyon" aria-label="Operasyon paneli tarzı stok takip tasarımı" hidden>
+    <div class="stock-mock operations">
+      <div class="mock-shell">
+        <aside class="mock-side">
+          <div class="mini-logo">SK</div>
+          <div class="icon-dot">S</div>
+          <div class="icon-dot active">↕</div>
+          <div class="icon-dot">▥</div>
+          <div class="icon-dot">▣</div>
+          <div class="icon-dot">⚙</div>
+        </aside>
+        <main class="mock-main">
+          <div class="mock-top">
+            <div class="mock-title">
+              <h2>Hareketler</h2>
+              <p>Hızlı okuma, net ürün kartları, çıkışta otomatik FIFO</p>
+            </div>
+            <div class="mock-actions">
+              <button class="mock-button">Kamera Tara</button>
+              <button class="mock-button primary">Giriş</button>
+              <button class="mock-button danger">Çıkış</button>
+            </div>
+          </div>
+
+          <div class="mock-toolbar">
+            <div class="mock-input">Barkod / ürün adı / ID</div>
+            <button class="mock-button primary">Ürünü Bul</button>
+          </div>
+
+          <div class="mock-kpis">
+            <div class="mock-card mock-kpi"><span>Toplam stok</span><strong>₺933.431</strong></div>
+            <div class="mock-card mock-kpi"><span>Bugün giriş</span><strong class="pos">₺18.220</strong></div>
+            <div class="mock-card mock-kpi"><span>Bugün çıkış</span><strong class="neg">₺9.840</strong></div>
+            <div class="mock-card mock-kpi"><span>Kritik stok</span><strong class="neg">15</strong></div>
+            <div class="mock-card mock-kpi"><span>FIFO</span><strong>Aktif</strong></div>
+          </div>
+
+          <div class="mock-pills">
+            <span class="mock-pill active">Tümü</span>
+            <span class="mock-pill">Sık kullanılan</span>
+            <span class="mock-pill">Eksilenler</span>
+            <span class="mock-pill">Bugün işlem gören</span>
+          </div>
+
+          <section class="product-grid">
+            <article class="mock-card product-card">
+              <h3>Cola</h3><span class="muted">5000112664478 · İçecek</span>
+              <div class="product-line"><div><span>Güncel</span><strong>84</strong></div><div><span>Giriş</span><strong class="pos">+0</strong></div><div><span>Çıkış</span><strong class="neg">-49</strong></div></div>
+            </article>
+            <article class="mock-card product-card">
+              <h3>Tavuk</h3><span class="muted">0026 · Et</span>
+              <div class="product-line"><div><span>Güncel</span><strong>535,65</strong></div><div><span>Giriş</span><strong class="pos">+311,65</strong></div><div><span>Çıkış</span><strong class="neg">0</strong></div></div>
+            </article>
+            <article class="mock-card product-card">
+              <h3>Kanat</h3><span class="muted">0027 · Et</span>
+              <div class="product-line"><div><span>Güncel</span><strong>1</strong></div><div><span>Giriş</span><strong class="pos">+0</strong></div><div><span>Çıkış</span><strong class="neg">-6</strong></div></div>
+            </article>
+            <article class="mock-card product-card">
+              <h3>Fuse Tea Şeftali</h3><span class="muted">5000112664713</span>
+              <div class="product-line"><div><span>Güncel</span><strong>75</strong></div><div><span>Giriş</span><strong class="pos">+0</strong></div><div><span>Çıkış</span><strong class="neg">-28</strong></div></div>
+            </article>
+            <article class="mock-card product-card">
+              <h3>Pirzola</h3><span class="muted">0028 · Et</span>
+              <div class="product-line"><div><span>Güncel</span><strong>8,07</strong></div><div><span>Giriş</span><strong class="pos">+12,07</strong></div><div><span>Çıkış</span><strong class="neg">-10</strong></div></div>
+            </article>
+            <article class="mock-card product-card">
+              <h3>Sosis</h3><span class="muted">0029 · Et</span>
+              <div class="product-line"><div><span>Güncel</span><strong>48</strong></div><div><span>Giriş</span><strong class="pos">+40</strong></div><div><span>Çıkış</span><strong class="neg">-19</strong></div></div>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section data-variant="Fiş" aria-label="Fiş ve depo kağıdı tarzı stok takip tasarımı" hidden>
+    <div class="stock-mock receipt">
+      <div class="mock-shell">
+        <aside class="mock-side">
+          <div class="mock-logo">SK</div>
+          <div class="mock-label">Aktif şube</div>
+          <div class="mock-select">Beşiktaş</div>
+          <div class="mock-label">Hızlı işler</div>
+          <nav class="mock-menu" aria-label="Menü">
+            <div class="mock-menu-item active"># Günlük hareket</div>
+            <div class="mock-menu-item"># Sayım kontrol</div>
+            <div class="mock-menu-item"># Excel arşiv</div>
+            <div class="mock-menu-item"># Şube ayar</div>
+          </nav>
+        </aside>
+        <main class="mock-main">
+          <div class="mock-top">
+            <div class="mock-title">
+              <h2>Depo Fişi</h2>
+              <p>Giriş/çıkış satır satır, fiş mantığında ve çok okunaklı</p>
+            </div>
+            <div class="mock-actions">
+              <button class="mock-button">Ürün ara</button>
+              <button class="mock-button primary">Yeni giriş fişi</button>
+            </div>
+          </div>
+
+          <div class="paper-stack">
+            <section class="receipt-ticket">
+              <h3>10.09.2026 · Günlük Liste</h3>
+              <p class="muted">FIFO çıkışlar otomatik maliyetlendirildi</p>
+              <div class="receipt-row"><strong>Cola</strong><span>Çıkış 12</span><span class="neg">₺10.466,28</span></div>
+              <div class="receipt-row"><strong>Tavuk</strong><span>Giriş 28,5</span><span class="pos">₺4.317,75</span></div>
+              <div class="receipt-row"><strong>Kanat</strong><span>Çıkış 6</span><span class="neg">₺1.549,56</span></div>
+              <div class="receipt-row"><strong>Fuse Tea Mango</strong><span>Çıkış 8</span><span class="neg">₺3.495,92</span></div>
+              <div class="receipt-row"><strong>Sos</strong><span>Giriş 4</span><span class="pos">₺373,72</span></div>
+              <div class="receipt-row"><strong>Poşet küçük</strong><span>Çıkış 5</span><span class="neg">₺585,00</span></div>
+            </section>
+
+            <aside class="receipt-summary">
+              <div class="mock-card">
+                <span class="muted">Dönem stok değeri</span>
+                <strong>₺933.431</strong>
+              </div>
+              <div class="mock-card">
+                <span class="muted">Bugünkü çıkış değeri</span>
+                <strong class="neg">₺16.681</strong>
+              </div>
+              <div class="mock-card">
+                <span class="muted">Son okutulan barkod</span>
+                <strong>5000112664478</strong>
+              </div>
+              <div class="mock-card">
+                <span class="muted">Kontrol notu</span>
+                <strong>15 ürün kritik</strong>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+</div>
