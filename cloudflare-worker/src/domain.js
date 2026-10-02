@@ -14,8 +14,8 @@ export async function getProducts(env, { subeId = null, kategori = '', q = '', s
   return supabaseFetch(env, `/urunler?${filters.join('&')}`);
 }
 
-export async function productToDict(env, product, ay = null, yil = null) {
-  const hareketler = await supabaseFetch(
+export async function productToDict(env, product, ay = null, yil = null, prefetchedHareketler = null) {
+  const hareketler = prefetchedHareketler ?? await supabaseFetch(
     env,
     `/stok_hareketleri?urun_id=eq.${encodeURIComponent(product.id)}&select=*&order=tarih.asc,id.asc`
   );
@@ -99,7 +99,8 @@ export async function handleGetUrunler(request, env, url) {
     q: (url.searchParams.get('q') || '').trim(),
     select: '*,subeler(isim)',
   });
-  return Promise.all(products.map((product) => productToDict(env, product)));
+  const hareketlerByProduct = await getMovementsByProduct(env, products);
+  return Promise.all(products.map((product) => productToDict(env, product, null, null, hareketlerByProduct.get(product.id) || [])));
 }
 
 export async function handleGetUrun(request, env, id) {
@@ -118,7 +119,14 @@ export async function handleGetStokOzet(request, env, url) {
     q: (url.searchParams.get('q') || '').trim(),
     select: '*,subeler(isim)',
   });
-  return Promise.all(products.map((product) => productToDict(env, product, url.searchParams.get('ay'), url.searchParams.get('yil'))));
+  const hareketlerByProduct = await getMovementsByProduct(env, products);
+  return Promise.all(products.map((product) => productToDict(
+    env,
+    product,
+    url.searchParams.get('ay'),
+    url.searchParams.get('yil'),
+    hareketlerByProduct.get(product.id) || []
+  )));
 }
 
 export async function handleGetStokToplam(request, env, url) {
@@ -144,6 +152,28 @@ export function subeToDict(sube) {
     stok_islem_izin: Boolean(sube.stok_islem_izin),
     rapor_izin: Boolean(sube.rapor_izin),
   };
+}
+
+async function getMovementsByProduct(env, products) {
+  const result = new Map();
+  if (!products.length) return result;
+  for (const product of products) result.set(product.id, []);
+
+  const ids = products
+    .map((product) => Number(product.id))
+    .filter((id) => Number.isFinite(id));
+  if (!ids.length) return result;
+
+  const hareketler = await supabaseFetch(
+    env,
+    `/stok_hareketleri?urun_id=in.(${ids.join(',')})&select=*&order=tarih.asc,id.asc`
+  );
+  for (const hareket of hareketler) {
+    const productId = Number(hareket.urun_id);
+    if (!result.has(productId)) result.set(productId, []);
+    result.get(productId).push(hareket);
+  }
+  return result;
 }
 
 function sumMovements(hareketler, type) {
