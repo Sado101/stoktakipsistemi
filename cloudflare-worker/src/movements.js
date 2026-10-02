@@ -59,7 +59,6 @@ export async function handleCreateHareket(request, env) {
     hareket_turu: hareketTuru,
     miktar,
     birim_fiyat: birimFiyat,
-    fifo_detay: null,
     tarih,
     aciklama: String(data.aciklama || ''),
     islemi_yapan: activeUserName(session),
@@ -132,7 +131,6 @@ export async function handleUpdateHareket(request, env, id) {
     hareket_turu: hareketTuru,
     miktar,
     birim_fiyat: birimFiyat,
-    fifo_detay: hareketTuru === 'giris' ? null : original.fifo_detay,
     tarih,
     aciklama: data.aciklama !== undefined ? String(data.aciklama || '') : original.aciklama,
     islemi_yapan: activeUserName(session),
@@ -157,7 +155,6 @@ export async function handleUpdateHareket(request, env, id) {
     hareket_turu: updated.hareket_turu,
     miktar: updated.miktar,
     birim_fiyat: updated.birim_fiyat,
-    fifo_detay: updated.hareket_turu === 'giris' ? null : updated.fifo_detay,
     tarih: updated.tarih,
     aciklama: updated.aciklama,
     islemi_yapan: updated.islemi_yapan,
@@ -229,7 +226,6 @@ async function recalculateAndPersistProduct(env, productId) {
   for (const movement of recalculated) {
     await patchMovement(env, movement.id, {
       birim_fiyat: movement.birim_fiyat,
-      fifo_detay: movement.fifo_detay,
     });
   }
 }
@@ -262,9 +258,6 @@ function recalculateProductFifo(product, movements) {
         kalan: miktar,
         fiyat: unitPrice(movement.birim_fiyat, product.fiyat),
       });
-      if (movement.id !== TEMP_MOVEMENT_ID && movement.fifo_detay !== null) {
-        changed.push({ ...movement, fifo_detay: null });
-      }
       continue;
     }
 
@@ -300,12 +293,11 @@ function recalculateProductFifo(product, movements) {
     }
 
     const nextPrice = round(toplamDeger / miktar, 6);
-    const nextDetail = JSON.stringify(detay);
     if (
       movement.id !== TEMP_MOVEMENT_ID
-      && (round(movement.birim_fiyat, 6) !== nextPrice || String(movement.fifo_detay || '') !== nextDetail)
+      && round(movement.birim_fiyat, 6) !== nextPrice
     ) {
-      changed.push({ ...movement, birim_fiyat: nextPrice, fifo_detay: nextDetail });
+      changed.push({ ...movement, birim_fiyat: nextPrice });
     }
     for (let i = layers.length - 1; i >= 0; i -= 1) {
       if (Number(layers[i].kalan || 0) <= 0.0000001) layers.splice(i, 1);
