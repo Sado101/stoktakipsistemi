@@ -36,7 +36,7 @@ export async function handleGetHareketler(request, env, url) {
     hareketler = hareketler.filter((hareket) => productById.has(Number(hareket.urun_id)));
   }
 
-  return hareketler.map((hareket) => hareketToDict(hareket, productById.get(Number(hareket.urun_id))));
+  return hareketler.map((hareket) => movementToDict(hareket, productById.get(Number(hareket.urun_id))));
 }
 
 export async function handleCreateHareket(request, env) {
