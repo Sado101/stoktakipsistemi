@@ -208,7 +208,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
 
     scanningRef.current = true;
     try {
-      // Ürün barkodlarında yalnızca 1D formatları arayıp varsayılan
+      // Ürün barkodlarında yalnızca  1D formatları arayıp varsayılan
       // 500 ms tarama beklemesini düşürmek okumayı belirgin hızlandırır.
       const reader = barkodOkuyucuOlustur();
       scannerControlsRef.current = await reader.decodeFromConstraints(
