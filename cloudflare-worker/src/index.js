@@ -7,6 +7,12 @@ import {
   handleGetUrunler,
   KATEGORILER,
 } from './domain.js';
+import {
+  handleCreateHareket,
+  handleDeleteHareket,
+  handleGetHareketler,
+  handleUpdateHareket,
+} from './movements.js';
 import { json, notFound, optionsResponse, withCors } from './response.js';
 import { ApiError, handleApiError, selectOne, supabaseFetch } from './supabase.js';
 
@@ -64,6 +70,11 @@ async function route(request, env, url) {
   if (urunMatch && request.method === 'GET') return json(await handleGetUrun(request, env, urunMatch[1]));
   if (path === '/api/stok/ozet' && request.method === 'GET') return json(await handleGetStokOzet(request, env, url));
   if (path === '/api/stok/toplam' && request.method === 'GET') return json(await handleGetStokToplam(request, env, url));
+  if (path === '/api/hareketler' && request.method === 'GET') return json(await handleGetHareketler(request, env, url));
+  if (path === '/api/hareketler' && request.method === 'POST') return json(await handleCreateHareket(request, env), 201);
+  const hareketMatch = path.match(/^\/api\/hareketler\/(\d+)$/);
+  if (hareketMatch && request.method === 'PUT') return json(await handleUpdateHareket(request, env, hareketMatch[1]));
+  if (hareketMatch && request.method === 'DELETE') return json(await handleDeleteHareket(request, env, hareketMatch[1]));
 
   return notFound();
 }
