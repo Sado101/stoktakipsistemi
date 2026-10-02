@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 
 [vars]
-CORS_ORIGINS = "http://localhost:3000"
+CORS_ORIGINS = "http://localhost:3000,https://stoktakipsistemi.pages.dev"
 SUPABASE_URL = "https://yjcazjgfdgysahtvvlgt.supabase.co"
 
 # Cloudflare dashboard veya wrangler secret ile girilecek:
