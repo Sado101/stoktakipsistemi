@@ -5,32 +5,38 @@ const TEMP_MOVEMENT_ID = 9007199254740991;
 
 export async function handleGetHareketler(request, env, url) {
   await requireSession(request, env);
-  const filters = [
-    'select=*,urunler!inner(ad,sube_id,kategori,fiyat)',
-    'order=tarih.asc',
-    'order=id.asc',
-  ];
-
   const urunId = asPositiveInt(url.searchParams.get('urun_id'), 'urun_id', false);
-  if (urunId) filters.push(`urun_id=eq.${encodeURIComponent(urunId)}`);
-
   const subeId = await allowedBranchId(request, env, url.searchParams.get('sube_id'));
-  if (subeId) filters.push(`urunler.sube_id=eq.${encodeURIComponent(subeId)}`);
-
   const kategori = url.searchParams.get('kategori') || '';
-  if (kategori) filters.push(`urunler.kategori=eq.${encodeURIComponent(kategori)}`);
-
   const tarih = parseIsoDate(url.searchParams.get('tarih'), false);
-  if (tarih) filters.push(`tarih=eq.${encodeURIComponent(tarih)}`);
-
   const period = periodBounds(url.searchParams.get('ay'), url.searchParams.get('yil'));
+
+  const movementFilters = [
+    'select=*',
+    'order=tarih.asc,id.asc',
+  ];
+  if (urunId) movementFilters.push(`urun_id=eq.${encodeURIComponent(urunId)}`);
+  if (tarih) movementFilters.push(`tarih=eq.${encodeURIComponent(tarih)}`);
   if (period) {
-    filters.push(`tarih=gte.${encodeURIComponent(period.start)}`);
-    filters.push(`tarih=lt.${encodeURIComponent(period.end)}`);
+    movementFilters.push(`tarih=gte.${encodeURIComponent(period.start)}`);
+    movementFilters.push(`tarih=lt.${encodeURIComponent(period.end)}`);
   }
 
-  const hareketler = await supabaseFetch(env, `/stok_hareketleri?${filters.join('&')}`);
-  return hareketler.map((hareket) => hareketToDict(hareket, hareket.urunler));
+  let hareketler = await supabaseFetch(env, `/stok_hareketleri?${movementFilters.join('&')}`);
+
+  const productFilters = ['select=id,ad,sube_id,kategori,fiyat'];
+  if (urunId) productFilters.push(`id=eq.${encodeURIComponent(urunId)}`);
+  if (subeId) productFilters.push(`sube_id=eq.${encodeURIComponent(subeId)}`);
+  if (kategori) productFilters.push(`kategori=eq.${encodeURIComponent(kategori)}`);
+
+  const products = await supabaseFetch(env, `/urunler?${productFilters.join('&')}`);
+  const productById = new Map(products.map((product) => [Number(product.id), product]));
+
+  if (urunId || subeId || kategori) {
+    hareketler = hareketler.filter((hareket) => productById.has(Number(hareket.urun_id)));
+  }
+
+  return hareketler.map((hareket) => hareketToDict(hareket, productById.get(Number(hareket.urun_id))));
 }
 
 export async function handleCreateHareket(request, env) {
