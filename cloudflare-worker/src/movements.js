@@ -82,15 +82,15 @@ export async function handleCreateHareket(request, env) {
     throw error;
   }
 
+  const saved = await getMovement(env, inserted.id);
   await audit(env, {
     sube_id: product.sube_id,
     islemi_yapan: activeUserName(session),
     islem: hareketTuru === 'giris' ? 'Stok girişi' : 'Stok çıkışı',
     varlik: 'Stok hareketi',
-    detay: `${product.ad} · ${formatNumber(miktar)} adet · FIFO fiyat: ${Number(inserted.birim_fiyat || 0).toFixed(2)}`,
+    detay: `${product.ad} · ${formatNumber(miktar)} adet · FIFO fiyat: ${Number(saved?.birim_fiyat || 0).toFixed(2)}`,
   });
 
-  const saved = await getMovement(env, inserted.id);
   return movementToDict(saved, product);
 }
 
@@ -201,13 +201,11 @@ export async function handleDeleteHareket(request, env, id) {
 }
 
 async function getProductForWrite(request, env, productId) {
-  const product = await selectOne(
-    env,
-    `/urunler?id=eq.${encodeURIComponent(productId)}&select=*,subeler(*)&limit=1`
-  );
+  const product = await selectOne(env, `/urunler?id=eq.${encodeURIComponent(productId)}&select=*&limit=1`);
   if (!product) throw new ApiError('Ürün bulunamadı', 404);
   await allowedBranchId(request, env, product.sube_id);
-  return { ...product, sube: product.subeler };
+  const sube = await selectOne(env, `/subeler?id=eq.${encodeURIComponent(product.sube_id)}&select=*&limit=1`);
+  return { ...product, sube };
 }
 
 function ensureStockWriteAllowed(sube) {
@@ -324,10 +322,13 @@ async function getMovementsForProduct(env, productId) {
 }
 
 async function getMovement(env, movementId) {
-  return selectOne(
+  const movement = await selectOne(env, `/stok_hareketleri?id=eq.${encodeURIComponent(movementId)}&select=*&limit=1`);
+  if (!movement) return null;
+  const product = await selectOne(
     env,
-    `/stok_hareketleri?id=eq.${encodeURIComponent(movementId)}&select=*,urunler(ad,sube_id,kategori,fiyat)&limit=1`
+    `/urunler?id=eq.${encodeURIComponent(movement.urun_id)}&select=id,ad,sube_id,kategori,fiyat&limit=1`
   );
+  return { ...movement, urunler: product };
 }
 
 async function insertMovement(env, payload) {
