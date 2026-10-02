@@ -4,8 +4,8 @@ compatibility_date = "2026-10-01"
 
 [vars]
 CORS_ORIGINS = "http://localhost:3000"
+SUPABASE_URL = "https://yjcazjgfdgysahtvvlgt.supabase.co"
 
 # Cloudflare dashboard veya wrangler secret ile girilecek:
-# SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY
 # SESSION_SECRET
