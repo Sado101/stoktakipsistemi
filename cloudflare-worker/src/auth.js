@@ -100,6 +100,20 @@ export async function verifyWerkzeugHash(storedHash, password) {
   return timingSafeEqual(actualHex, expectedHex);
 }
 
+export function generateWerkzeugHash(password) {
+  const salt = randomSalt(16);
+  const passwordBytes = utf8ToBytes(String(password));
+  const saltBytes = utf8ToBytes(salt);
+  const method = 'scrypt:32768:8:1';
+  const hashHex = bytesToHex(scrypt(passwordBytes, saltBytes, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    dkLen: 64,
+  }));
+  return `${method}$${salt}$${hashHex}`;
+}
+
 export function checkSubeAccess(sube) {
   if (!sube) throw new ApiError('Şube bulunamadı', 404);
   if (sube.aktif === false) throw new ApiError('Bu şube geçici olarak bloke edilmiştir.', 403);
@@ -182,4 +196,13 @@ function timingSafeEqual(a, b) {
     diff |= left.charCodeAt(i) ^ right.charCodeAt(i);
   }
   return diff === 0;
+}
+
+function randomSalt(length) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let result = '';
+  for (const byte of bytes) result += alphabet[byte % alphabet.length];
+  return result;
 }
