@@ -20,6 +20,9 @@ export async function productToDict(env, product, ay = null, yil = null, prefetc
     `/stok_hareketleri?urun_id=eq.${encodeURIComponent(product.id)}&select=*&order=tarih.asc,id.asc`
   );
   const period = ay && yil ? periodBounds(ay, yil) : null;
+  if (period && product.__created_at && period.end <= dateKey(product.__created_at)) {
+    return null;
+  }
   const allGiris = sumMovements(hareketler, 'giris');
   const allCikis = sumMovements(hareketler, 'cikis');
   let devreden = Number(product.devreden_stok || 0);
@@ -132,13 +135,17 @@ export async function handleGetStokOzet(request, env, url) {
     select: '*,subeler(isim)',
   });
   const hareketlerByProduct = await getMovementsByProduct(env, products);
-  return Promise.all(products.map((product) => productToDict(
+  const ay = url.searchParams.get('ay');
+  const yil = url.searchParams.get('yil');
+  const creationDates = ay && yil ? await getProductCreationDates(env, products) : new Map();
+  const items = await Promise.all(products.map((product) => productToDict(
     env,
-    product,
-    url.searchParams.get('ay'),
-    url.searchParams.get('yil'),
+    { ...product, __created_at: creationDates.get(productKey(product)) || null },
+    ay,
+    yil,
     hareketlerByProduct.get(product.id) || []
   )));
+  return items.filter(Boolean);
 }
 
 export async function handleGetStokToplam(request, env, url) {
@@ -186,6 +193,32 @@ async function getMovementsByProduct(env, products) {
     result.get(productId).push(hareket);
   }
   return result;
+}
+
+async function getProductCreationDates(env, products) {
+  const result = new Map();
+  if (!products.length) return result;
+  const wanted = new Set(products.map(productKey));
+  const rows = await supabaseFetch(
+    env,
+    `/islem_kayitlari?islem=eq.${encodeURIComponent('Ürün eklendi')}&varlik=eq.${encodeURIComponent('Ürün')}&select=sube_id,detay,olusturma&order=olusturma.desc&limit=5000`
+  );
+  for (const row of rows) {
+    const barcode = extractBarcode(row.detay);
+    if (!barcode) continue;
+    const key = `${Number(row.sube_id)}::${barcode}`;
+    if (wanted.has(key) && !result.has(key)) result.set(key, row.olusturma);
+  }
+  return result;
+}
+
+function productKey(product) {
+  return `${Number(product.sube_id)}::${String(product.urun_id || '')}`;
+}
+
+function extractBarcode(detail) {
+  const match = String(detail || '').match(/Barkod:\s*([^·]+)/i);
+  return match ? match[1].trim() : '';
 }
 
 function sumMovements(hareketler, type) {
