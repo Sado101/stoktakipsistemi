@@ -66,7 +66,9 @@ export async function handleCreateHareket(request, env) {
   };
 
   const existing = await getMovementsForProduct(env, urunId);
-  recalculateProductFifo(newProduct, [...existing, simulated]);
+  if (hareketTuru === 'cikis') {
+    recalculateProductFifo(newProduct, [...existing, simulated]);
+  }
 
   if (hareketTuru === 'giris') {
     await patchProduct(env, urunId, { fiyat: birimFiyat });
@@ -74,7 +76,7 @@ export async function handleCreateHareket(request, env) {
 
   const inserted = await insertMovement(env, withoutId(simulated));
   try {
-    await recalculateAndPersistProduct(env, urunId);
+    await recalculateAndPersistProduct(env, urunId, { allowOversold: hareketTuru === 'giris' });
   } catch (error) {
     await deleteMovement(env, inserted.id).catch(() => null);
     if (hareketTuru === 'giris') await patchProduct(env, urunId, { fiyat: product.fiyat }).catch(() => null);
@@ -218,11 +220,11 @@ async function validateAffectedProducts(env, productIds, validator) {
   }
 }
 
-async function recalculateAndPersistProduct(env, productId) {
+async function recalculateAndPersistProduct(env, productId, options = {}) {
   const product = await selectOne(env, `/urunler?id=eq.${encodeURIComponent(productId)}&select=*&limit=1`);
   if (!product) return;
   const movements = await getMovementsForProduct(env, productId);
-  const recalculated = recalculateProductFifo(product, movements);
+  const recalculated = recalculateProductFifo(product, movements, options);
   for (const movement of recalculated) {
     await patchMovement(env, movement.id, {
       birim_fiyat: movement.birim_fiyat,
@@ -230,7 +232,7 @@ async function recalculateAndPersistProduct(env, productId) {
   }
 }
 
-function recalculateProductFifo(product, movements) {
+function recalculateProductFifo(product, movements, { allowOversold = false } = {}) {
   const layers = [];
   const devredenMiktar = Number(product.devreden_stok || 0);
   const devredenFiyat = unitPrice(product.devreden_birim_fiyat, product.fiyat);
@@ -285,11 +287,24 @@ function recalculateProductFifo(product, movements) {
       });
     }
 
-    if (kalanCikis > 0.0000001) {
+    if (kalanCikis > 0.0000001 && !allowOversold) {
       throw new ApiError(
         `${product.ad} için yeterli stok yok. Çıkış: ${formatNumber(miktar)}, eksik: ${formatNumber(kalanCikis)}`,
         400
       );
+    }
+    if (kalanCikis > 0.0000001) {
+      const fiyat = unitPrice(product.fiyat, 0);
+      toplamDeger += kalanCikis * fiyat;
+      detay.push({
+        kaynak: 'Eksik stok',
+        hareket_id: null,
+        tarih: null,
+        miktar: round(kalanCikis, 6),
+        birim_fiyat: round(fiyat, 6),
+        tutar: round(kalanCikis * fiyat, 2),
+      });
+      kalanCikis = 0;
     }
 
     const nextPrice = round(toplamDeger / miktar, 6);

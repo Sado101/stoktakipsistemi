@@ -314,9 +314,9 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
       return;
     }
     try {
-      const payload = { ...form, urun_id: parseInt(form.urun_id), miktar: parseFloat(form.miktar) };
+      const payload = { ...form, urun_id: parseInt(form.urun_id), miktar: sayiyaCevir(form.miktar) };
       if (form.hareket_turu === 'giris') {
-        payload.birim_fiyat = parseFloat(form.birim_fiyat);
+        payload.birim_fiyat = sayiyaCevir(form.birim_fiyat);
       } else {
         delete payload.birim_fiyat;
       }
@@ -334,6 +334,8 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
       onNotify?.('error', err.message);
     }
   };
+
+  const sayiyaCevir = (deger) => Number(String(deger ?? '').replace(',', '.'));
 
   const silHareket = async (id) => {
     try {
