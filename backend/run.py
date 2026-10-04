@@ -15,5 +15,5 @@ def _env_bool(name, default=False):
 if __name__ == '__main__':
     host = os.getenv('APP_HOST', 'localhost')
     port = int(os.getenv('APP_PORT', '5050'))
-    debug = _env_bool('APP_DEBUG', False)
+    debug = _env_bool('APP_DEBUG', Fals e)
     app.run(host=host, port=port, debug=debug)
