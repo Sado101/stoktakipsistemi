@@ -34,8 +34,8 @@ export async function productToDict(env, product, ay = null, yil = null, prefetc
   if (period) {
     const before = hareketler.filter((h) => dateKey(h.tarih) < period.start);
     const within = hareketler.filter((h) => dateKey(h.tarih) >= period.start && dateKey(h.tarih) < period.end);
-    fallbackPrice = historicalUnitPrice(product, hareketler, period.start);
     displayPrice = historicalUnitPrice(product, hareketler, period.end);
+    fallbackPrice = displayPrice;
     const oncekiGiris = sumMovements(before, 'giris');
     const oncekiCikis = sumMovements(before, 'cikis');
     devreden = Number(product.devreden_stok || 0) + oncekiGiris - oncekiCikis;
