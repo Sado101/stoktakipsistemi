@@ -9,6 +9,17 @@ const KAT = {
 
 const BOŞ = { urun_id: '', ad: '', fiyat: '', kategori: 'diger', sube_id: '', devreden_stok: '' };
 
+function sayiyaCevir(value, varsayilan = 0) {
+  if (value === '' || value === null || value === undefined) return varsayilan;
+  if (typeof value === 'number') return value;
+  const raw = String(value).trim();
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : varsayilan;
+}
+
 export default function UrunGirisi({ subeler, secilenSube, onKayit, kullanici, onNotify }) {
   const [form, setForm] = useState({ ...BOŞ, sube_id: secilenSube || '' });
   const [yukleniyor, setYukleniyor] = useState(false);
@@ -25,9 +36,9 @@ export default function UrunGirisi({ subeler, secilenSube, onKayit, kullanici, o
     try {
       await api.createUrun({
         ...form,
-        fiyat: parseFloat(form.fiyat),
+        fiyat: sayiyaCevir(form.fiyat),
         sube_id: parseInt(form.sube_id),
-        devreden_stok: parseFloat(form.devreden_stok || 0),
+        devreden_stok: sayiyaCevir(form.devreden_stok || 0),
       });
       onNotify?.('success', `"${form.ad}" başarıyla eklendi.`);
       setForm({ ...BOŞ, sube_id: secilenSube || '' });
@@ -107,7 +118,6 @@ export default function UrunGirisi({ subeler, secilenSube, onKayit, kullanici, o
     </div>
   );
 }
-
 
 
 

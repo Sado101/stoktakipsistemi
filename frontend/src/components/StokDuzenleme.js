@@ -18,7 +18,10 @@ function fiyatFmt(value) {
 function sayiyaCevir(value, varsayilan = 0) {
   if (value === '' || value === null || value === undefined) return varsayilan;
   if (typeof value === 'number') return value;
-  const normalized = String(value).trim().replace(/\./g, '').replace(',', '.');
+  const raw = String(value).trim();
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : varsayilan;
 }
