@@ -26,28 +26,32 @@ export async function productToDict(env, product, ay = null, yil = null, prefetc
   let gelen = allGiris;
   let giden = allCikis;
   let guncel = devreden + gelen - giden;
-  let devredenDeger = round2(devreden * unitPrice(product.devreden_birim_fiyat, product.fiyat));
-  let toplamDeger = fifoStockValue(product, hareketler);
+  let fallbackPrice = unitPrice(product.devreden_birim_fiyat, product.fiyat);
+  let displayPrice = Number(product.fiyat || 0);
+  let devredenDeger = round2(devreden * fallbackPrice);
+  let toplamDeger = fifoStockValue(product, hareketler, fallbackPrice);
 
   if (period) {
     const before = hareketler.filter((h) => dateKey(h.tarih) < period.start);
     const within = hareketler.filter((h) => dateKey(h.tarih) >= period.start && dateKey(h.tarih) < period.end);
+    fallbackPrice = historicalUnitPrice(product, hareketler, period.start);
+    displayPrice = historicalUnitPrice(product, hareketler, period.end);
     const oncekiGiris = sumMovements(before, 'giris');
     const oncekiCikis = sumMovements(before, 'cikis');
     devreden = Number(product.devreden_stok || 0) + oncekiGiris - oncekiCikis;
     gelen = sumMovements(within, 'giris');
     giden = sumMovements(within, 'cikis');
     guncel = devreden + gelen - giden;
-    devredenDeger = fifoStockValue(product, before);
-    toplamDeger = fifoStockValue(product, hareketler.filter((h) => dateKey(h.tarih) < period.end));
+    devredenDeger = fifoStockValue(product, before, fallbackPrice);
+    toplamDeger = fifoStockValue(product, hareketler.filter((h) => dateKey(h.tarih) < period.end), fallbackPrice);
   }
 
   return {
     id: product.id,
     urun_id: product.urun_id,
     ad: product.ad,
-    fiyat: Number(product.fiyat || 0),
-    devreden_birim_fiyat: unitPrice(product.devreden_birim_fiyat, product.fiyat),
+    fiyat: displayPrice,
+    devreden_birim_fiyat: fallbackPrice,
     kategori: product.kategori,
     sube_id: product.sube_id,
     sube_isim: product.subeler?.isim || product.sube_isim || '',
@@ -56,8 +60,8 @@ export async function productToDict(env, product, ay = null, yil = null, prefetc
     giden: Number(giden),
     guncel_stok: Number(guncel),
     devreden_deger: devredenDeger,
-    gelen_deger: movementValue(product, hareketler, 'giris', period),
-    kullanilan_deger: movementValue(product, hareketler, 'cikis', period),
+    gelen_deger: movementValue(product, hareketler, 'giris', period, fallbackPrice),
+    kullanilan_deger: movementValue(product, hareketler, 'cikis', period, fallbackPrice),
     toplam_deger: toplamDeger,
   };
 }
@@ -182,22 +186,24 @@ function sumMovements(hareketler, type) {
     .reduce((sum, h) => sum + Number(h.miktar || 0), 0);
 }
 
-function movementValue(product, hareketler, type, period = null) {
+function movementValue(product, hareketler, type, period = null, fallbackPrice = null) {
+  const fallback = fallbackPrice ?? unitPrice(product.devreden_birim_fiyat, product.fiyat);
   return round2(hareketler
     .filter((h) => h.hareket_turu === type)
     .filter((h) => !period || (dateKey(h.tarih) >= period.start && dateKey(h.tarih) < period.end))
-    .reduce((sum, h) => sum + Number(h.miktar || 0) * unitPrice(h.birim_fiyat, product.fiyat), 0));
+    .reduce((sum, h) => sum + Number(h.miktar || 0) * unitPrice(h.birim_fiyat, fallback), 0));
 }
 
-function fifoStockValue(product, hareketler) {
+function fifoStockValue(product, hareketler, fallbackPrice = null) {
   const layers = [];
   const devreden = Number(product.devreden_stok || 0);
-  if (devreden > 0) layers.push({ miktar: devreden, fiyat: unitPrice(product.devreden_birim_fiyat, product.fiyat) });
+  const fallback = fallbackPrice ?? unitPrice(product.devreden_birim_fiyat, product.fiyat);
+  if (devreden > 0) layers.push({ miktar: devreden, fiyat: unitPrice(product.devreden_birim_fiyat, fallback) });
   for (const hareket of [...hareketler].sort((a, b) => `${dateKey(a.tarih)}:${a.id}`.localeCompare(`${dateKey(b.tarih)}:${b.id}`))) {
     const miktar = Number(hareket.miktar || 0);
     if (miktar <= 0) continue;
     if (hareket.hareket_turu === 'giris') {
-      layers.push({ miktar, fiyat: unitPrice(hareket.birim_fiyat, product.fiyat) });
+      layers.push({ miktar, fiyat: unitPrice(hareket.birim_fiyat, fallback) });
     } else if (hareket.hareket_turu === 'cikis') {
       let kalan = miktar;
       for (const layer of layers) {
@@ -212,6 +218,23 @@ function fifoStockValue(product, hareketler) {
     }
   }
   return round2(layers.reduce((sum, layer) => sum + layer.miktar * layer.fiyat, 0));
+}
+
+function historicalUnitPrice(product, hareketler, cutoffDate) {
+  const beforeCutoff = [...hareketler]
+    .filter((h) => h.hareket_turu === 'giris')
+    .filter((h) => h.birim_fiyat !== null && h.birim_fiyat !== undefined)
+    .filter((h) => !cutoffDate || dateKey(h.tarih) < cutoffDate)
+    .sort((a, b) => `${dateKey(b.tarih)}:${b.id}`.localeCompare(`${dateKey(a.tarih)}:${a.id}`));
+  if (beforeCutoff.length) return Number(beforeCutoff[0].birim_fiyat || 0);
+
+  const anyHistorical = [...hareketler]
+    .filter((h) => h.hareket_turu === 'giris')
+    .filter((h) => h.birim_fiyat !== null && h.birim_fiyat !== undefined)
+    .sort((a, b) => `${dateKey(a.tarih)}:${a.id}`.localeCompare(`${dateKey(b.tarih)}:${b.id}`));
+  if (anyHistorical.length) return Number(anyHistorical[0].birim_fiyat || 0);
+
+  return unitPrice(product.devreden_birim_fiyat, product.fiyat);
 }
 
 function unitPrice(value, fallback) {
