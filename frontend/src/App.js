@@ -459,7 +459,7 @@ export default function App() {
       <main className="main">
         <div className="page-wrap">
           {sayfa === 'stok-bilgisi'   && <StokBilgisi secilenSube={aktifSubeId} yenile={yenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
-          {sayfa === 'stok-duzenleme' && <StokDuzenleme subeler={subeler} secilenSube={aktifSubeId} onGuncelle={tetikleYenile} kullanici={kullanici} onNotify={bildir} onConfirm={onayIste} />}
+          {sayfa === 'stok-duzenleme' && <StokDuzenleme subeler={subeler} secilenSube={aktifSubeId} onGuncelle={tetikleYenile} kullanici={kullanici} ay={ay} yil={yil} donemAcik={donemAcik} onNotify={bildir} onConfirm={onayIste} />}
           {sayfa === 'gelen-giden'    && <GelenGiden secilenSube={aktifSubeId} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} onConfirm={onayIste} />}
           {sayfa === 'barkod-islem'   && <BarkodIslem secilenSube={aktifSubeId} yenile={yenile} onHareket={tetikleYenile} ay={ay} yil={yil} donemAcik={donemAcik} onKilitAc={() => setKilitModal(true)} onNotify={bildir} />}
           {sayfa === 'arsiv'          && <Arsiv secilenSube={aktifSubeId} yenile={yenile} ay={ay} yil={yil} onNotify={bildir} />}

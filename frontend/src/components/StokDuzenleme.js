@@ -15,7 +15,15 @@ function fiyatFmt(value) {
   return `₺${Number(value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullanici, onNotify, onConfirm }) {
+function sayiyaCevir(value, varsayilan = 0) {
+  if (value === '' || value === null || value === undefined) return varsayilan;
+  if (typeof value === 'number') return value;
+  const normalized = String(value).trim().replace(/\./g, '').replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : varsayilan;
+}
+
+export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullanici, ay, yil, onNotify, onConfirm }) {
   const [urunler, setUrunler] = useState([]);
   const [arama, setArama] = useState('');
   const [secili, setSecili] = useState(null);
@@ -44,7 +52,11 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
       const params = {};
       if (secilenSube) params.sube_id = secilenSube;
       if (arama) params.q = arama;
-      setUrunler(await api.getUrunler(params));
+      if (ay && yil) {
+        params.ay = ay;
+        params.yil = yil;
+      }
+      setUrunler(await api.getStokOzet(params));
     } catch (e) {
       onNotify?.('error', e.message);
     }
@@ -53,7 +65,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   useEffect(() => {
     ara();
     setForm(f => ({ ...f, sube_id: secilenSube || f.sube_id || '' }));
-  }, [secilenSube]);
+  }, [secilenSube, ay, yil]);
 
   useEffect(() => () => kamerayiKapat(), []);
 
@@ -65,18 +77,34 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
   };
 
   const sec = async (u) => {
-    setSecili(u);
+    let anaKayit = u;
+    try {
+      const urunParams = {};
+      if (u.sube_id || secilenSube) urunParams.sube_id = u.sube_id || secilenSube;
+      if (u.urun_id) urunParams.q = u.urun_id;
+      const anaListe = await api.getUrunler(urunParams);
+      anaKayit = anaListe.find(item => Number(item.id) === Number(u.id)) || u;
+    } catch (e) {
+      anaKayit = u;
+    }
+
+    setSecili(anaKayit);
     setMod('edit');
     setForm({
-      urun_id: u.urun_id || '',
-      ad: u.ad || '',
-      fiyat: u.fiyat ?? '',
-      kategori: u.kategori || 'diger',
-      sube_id: String(u.sube_id || ''),
-      devreden_stok: u.devreden_stok ?? ''
+      urun_id: anaKayit.urun_id || '',
+      ad: anaKayit.ad || '',
+      fiyat: anaKayit.fiyat ?? '',
+      kategori: anaKayit.kategori || 'diger',
+      sube_id: String(anaKayit.sube_id || ''),
+      devreden_stok: anaKayit.devreden_stok ?? ''
     });
     try {
-      const data = await api.getHareketler({ urun_id: u.id });
+      const hareketParams = { urun_id: u.id };
+      if (ay && yil) {
+        hareketParams.ay = ay;
+        hareketParams.yil = yil;
+      }
+      const data = await api.getHareketler(hareketParams);
       setHareketler(data.reverse());
     } catch (e) {
       setHareketler([]);
@@ -148,9 +176,9 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
     ...form,
     urun_id: String(form.urun_id || '').trim(),
     ad: String(form.ad || '').trim(),
-    fiyat: parseFloat(form.fiyat),
+    fiyat: sayiyaCevir(form.fiyat),
     sube_id: parseInt(form.sube_id),
-    devreden_stok: parseFloat(form.devreden_stok || 0)
+    devreden_stok: sayiyaCevir(form.devreden_stok || 0)
   });
 
   const kaydet = async (e) => {
@@ -202,7 +230,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
       <div className="page-header product-page-header">
         <div>
           <h1>Ürünler</h1>
-          <p>Ürün ekleyin, barkod/ID ve stok bilgilerini tek ekrandan yönetin</p>
+          <p>Ürün ekleyin, barkod/ID ve stok bilgilerini tek ekrandan yönetin. Liste aktif dönem değerlerini gösterir; fiyat düzenleme güncel ana kaydı etkiler.</p>
         </div>
         <button className="btn btn-primary" onClick={yeniUrunAc}>
           <PackagePlus size={17} /> Ürün Ekle
@@ -238,7 +266,7 @@ export default function StokDuzenleme({ subeler, secilenSube, onGuncelle, kullan
                   <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--sk-ink)' }}>{u.ad}</div>
                   <div style={{ fontSize: 12, color: '#8a928c', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span>{u.urun_id}</span>
-                    <span>₺{u.fiyat}</span>
+                    <span>{fiyatFmt(u.fiyat)}</span>
                     <span style={{ color: u.guncel_stok <= 0 ? '#ef4444' : '#607064' }}>Stok: {u.guncel_stok}</span>
                   </div>
                 </div>
