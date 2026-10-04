@@ -139,13 +139,14 @@ export async function handleUpdateHareket(request, env, id) {
   };
 
   const affectedIds = [...new Set([original.urun_id, newUrunId])];
+  const allowOversoldRecalculation = original.hareket_turu === 'giris' || hareketTuru === 'giris';
   await validateAffectedProducts(env, affectedIds, (productId, movements) => {
     if (productId === original.urun_id) movements = movements.filter((item) => Number(item.id) !== hareketId);
     if (productId === newUrunId) movements = [...movements.filter((item) => Number(item.id) !== hareketId), updated];
     const product = productId === originalProduct.id
       ? { ...originalProduct, fiyat: originalProduct.id === newUrunId && hareketTuru === 'giris' ? birimFiyat : originalProduct.fiyat }
       : { ...targetProduct, fiyat: hareketTuru === 'giris' ? birimFiyat : targetProduct.fiyat };
-    recalculateProductFifo(product, movements);
+    recalculateProductFifo(product, movements, { allowOversold: allowOversoldRecalculation });
   });
 
   if (hareketTuru === 'giris') {
@@ -162,7 +163,7 @@ export async function handleUpdateHareket(request, env, id) {
     islemi_yapan: updated.islemi_yapan,
   });
   for (const productId of affectedIds) {
-    await recalculateAndPersistProduct(env, productId);
+    await recalculateAndPersistProduct(env, productId, { allowOversold: allowOversoldRecalculation });
   }
 
   await audit(env, {
@@ -185,7 +186,12 @@ export async function handleDeleteHareket(request, env, id) {
   ensureStockWriteAllowed(product.sube);
 
   const existing = await getMovementsForProduct(env, product.id);
-  recalculateProductFifo(product, existing.filter((item) => Number(item.id) !== hareketId));
+  const allowOversoldRecalculation = hareket.hareket_turu === 'giris';
+  recalculateProductFifo(
+    product,
+    existing.filter((item) => Number(item.id) !== hareketId),
+    { allowOversold: allowOversoldRecalculation }
+  );
 
   await audit(env, {
     sube_id: product.sube_id,
@@ -195,7 +201,7 @@ export async function handleDeleteHareket(request, env, id) {
     detay: `${product.ad} · ${formatNumber(hareket.miktar)} adet`,
   });
   await deleteMovement(env, hareketId);
-  await recalculateAndPersistProduct(env, product.id);
+  await recalculateAndPersistProduct(env, product.id, { allowOversold: allowOversoldRecalculation });
   return { message: 'Silindi' };
 }
 
