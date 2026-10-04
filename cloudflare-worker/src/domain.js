@@ -198,7 +198,7 @@ function fifoStockValue(product, hareketler, fallbackPrice = null) {
   const layers = [];
   const devreden = Number(product.devreden_stok || 0);
   const fallback = fallbackPrice ?? unitPrice(product.devreden_birim_fiyat, product.fiyat);
-  if (devreden > 0) layers.push({ miktar: devreden, fiyat: unitPrice(product.devreden_birim_fiyat, fallback) });
+  if (devreden > 0) layers.push({ miktar: devreden, fiyat: fallback });
   for (const hareket of [...hareketler].sort((a, b) => `${dateKey(a.tarih)}:${a.id}`.localeCompare(`${dateKey(b.tarih)}:${b.id}`))) {
     const miktar = Number(hareket.miktar || 0);
     if (miktar <= 0) continue;
