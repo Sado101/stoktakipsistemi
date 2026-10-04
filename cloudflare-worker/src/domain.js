@@ -34,16 +34,24 @@ export async function productToDict(env, product, ay = null, yil = null, prefetc
   if (period) {
     const before = hareketler.filter((h) => dateKey(h.tarih) < period.start);
     const within = hareketler.filter((h) => dateKey(h.tarih) >= period.start && dateKey(h.tarih) < period.end);
-    displayPrice = historicalUnitPrice(product, hareketler, period.end);
-    fallbackPrice = displayPrice;
     const oncekiGiris = sumMovements(before, 'giris');
     const oncekiCikis = sumMovements(before, 'cikis');
     devreden = Number(product.devreden_stok || 0) + oncekiGiris - oncekiCikis;
     gelen = sumMovements(within, 'giris');
     giden = sumMovements(within, 'cikis');
     guncel = devreden + gelen - giden;
-    devredenDeger = fifoStockValue(product, before, fallbackPrice);
-    toplamDeger = fifoStockValue(product, hareketler.filter((h) => dateKey(h.tarih) < period.end), fallbackPrice);
+
+    if (isClosedPeriod(period)) {
+      displayPrice = historicalUnitPrice(product, hareketler, period.end);
+      fallbackPrice = displayPrice;
+      devredenDeger = fifoStockValue(product, before, fallbackPrice);
+      toplamDeger = fifoStockValue(product, hareketler.filter((h) => dateKey(h.tarih) < period.end), fallbackPrice);
+    } else {
+      displayPrice = unitPrice(product.fiyat, product.devreden_birim_fiyat);
+      fallbackPrice = displayPrice;
+      devredenDeger = round2(Math.max(devreden, 0) * displayPrice);
+      toplamDeger = round2(Math.max(guncel, 0) * displayPrice);
+    }
   }
 
   return {
@@ -257,6 +265,19 @@ function periodBounds(ay, yil) {
   const endMonth = month === 12 ? 1 : month + 1;
   const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
   return { start, end };
+}
+
+function isClosedPeriod(period) {
+  return period.end <= currentDateKey();
+}
+
+function currentDateKey() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 }
 
 function dateKey(value) {
