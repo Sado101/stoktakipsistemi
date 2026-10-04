@@ -363,6 +363,21 @@ async function getCiro(request, env, url) {
   const ay = asMonth(url.searchParams.get('ay'));
   const yil = asYear(url.searchParams.get('yil'));
   const subeId = await allowedBranchId(request, env, url.searchParams.get('sube_id'));
+  if (!subeId) {
+    const rows = await supabaseFetch(env, `/aylik_ciro?ay=eq.${encodeURIComponent(ay)}&yil=eq.${encodeURIComponent(yil)}&select=*`);
+    const branchRows = rows.filter((row) => row.sube_id !== null && row.sube_id !== undefined);
+    const rowsToSum = branchRows.length ? branchRows : rows;
+    if (!rowsToSum.length) return null;
+    return {
+      id: null,
+      ay,
+      yil,
+      sube_id: null,
+      ciro: round(rowsToSum.reduce((sum, row) => sum + Number(row.ciro || 0), 0), 2),
+      adisyon: rowsToSum.reduce((sum, row) => sum + Number(row.adisyon || 0), 0),
+      guncelleme: '',
+    };
+  }
   const rows = await supabaseFetch(env, `/aylik_ciro?ay=eq.${encodeURIComponent(ay)}&yil=eq.${encodeURIComponent(yil)}&${ciroSubeFilter(subeId)}&select=*&limit=1`);
   return rows.length ? ciroToDict(rows[0]) : null;
 }

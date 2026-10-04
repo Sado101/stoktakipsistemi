@@ -42,6 +42,16 @@ const RAPORLAR = [
   },
 ];
 
+function yuzdeHesapla(pay, payda) {
+  const denominator = Number(payda || 0);
+  if (denominator <= 0) return null;
+  return Math.round((Number(pay || 0) / denominator) * 10000) / 100;
+}
+
+function yuzdeFmt(value) {
+  return value === null ? '—' : `%${Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function Arsiv({ secilenSube, yenile, ay, yil, onNotify }) {
   const [urunler, setUrunler] = useState([]);
   const [hareketler, setHareketler] = useState([]);
@@ -79,7 +89,7 @@ export default function Arsiv({ secilenSube, yenile, ay, yil, onNotify }) {
   const stokDegeri = urunler.reduce((acc, u) => acc + Number(u.toplam_deger ?? (u.guncel_stok * u.fiyat)), 0);
   const kullanilanMalDegeri = urunler.reduce((acc, u) => acc + Number(u.kullanilan_deger ?? (u.giden * u.fiyat)), 0);
   const devredenMalDegeri = urunler.reduce((acc, u) => acc + Number(u.devreden_deger ?? (u.devreden_stok * u.fiyat)), 0);
-  const kullanimYuzdesi = ciro > 0 ? Math.round((kullanilanMalDegeri / ciro) * 100) : null;
+  const kullanimYuzdesi = yuzdeHesapla(kullanilanMalDegeri, ciro);
   const girisSayisi = hareketler.filter(h => h.hareket_turu === 'giris').length;
   const cikisSayisi = hareketler.filter(h => h.hareket_turu === 'cikis').length;
 
@@ -187,7 +197,7 @@ export default function Arsiv({ secilenSube, yenile, ay, yil, onNotify }) {
         </div>
         <div className="stat-card" style={{ '--accent': kullanimYuzdesi === null ? '#94a3b8' : kullanimYuzdesi <= 36 ? '#059669' : kullanimYuzdesi <= 38 ? '#d97706' : '#dc2626' }}>
           <div className="stat-label">Kullanım %</div>
-          <div className="stat-value">{kullanimYuzdesi === null ? '—' : `%${kullanimYuzdesi}`}</div>
+          <div className="stat-value">{yuzdeFmt(kullanimYuzdesi)}</div>
           <div className="stat-icon"><BarChart3 size={24} /></div>
         </div>
       </div>

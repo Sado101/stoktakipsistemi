@@ -9,6 +9,27 @@ const KAT = {
   ekmek: 'Ekmek', tatli: 'Tatlı', kuru_gida: 'Kuru Gıda', manav: 'Manav', diger: 'Diğer'
 };
 
+function sayiyaCevir(value, varsayilan = 0) {
+  if (value === '' || value === null || value === undefined) return varsayilan;
+  if (typeof value === 'number') return value;
+  const raw = String(value).trim();
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : varsayilan;
+}
+
+function yuzdeHesapla(pay, payda) {
+  const denominator = Number(payda || 0);
+  if (denominator <= 0) return null;
+  return Math.round((Number(pay || 0) / denominator) * 10000) / 100;
+}
+
+function yuzdeFmt(value) {
+  return value === null ? '—' : `%${Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function StokBilgisi({ secilenSube, yenile, ay, yil, donemAcik, onKilitAc, onNotify }) {
   const now = new Date();
   const ayKapaliHam = yil < now.getFullYear() || (yil === now.getFullYear() && ay < now.getMonth() + 1);
@@ -74,7 +95,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
       await api.saveCiro({
         ay, yil,
         sube_id: secilenSube ? parseInt(secilenSube) : null,
-        ciro: parseFloat(ciro),
+        ciro: sayiyaCevir(ciro),
         adisyon: parseInt(adisyon)
       });
       setCiroDurum('saved');
@@ -83,20 +104,18 @@ const ayKapali = ayKapaliHam && !donemAcik;
   };
 
   const kritikStok = urunler.filter(u => u.guncel_stok <= 0).length;
-  const ortAdisyon = ciro && adisyon && parseInt(adisyon) > 0
-    ? (parseFloat(ciro) / parseInt(adisyon)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })
+  const ciroSayisi = sayiyaCevir(ciro);
+  const ortAdisyon = ciroSayisi && adisyon && parseInt(adisyon) > 0
+    ? (ciroSayisi / parseInt(adisyon)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })
     : null;
   const toplamKullanilanDeger = urunler.reduce((acc, u) => acc + Number(u.kullanilan_deger ?? (u.giden * u.fiyat)), 0);
-  const kullanimYuzdesi = ciro && parseFloat(ciro) > 0
-    ? Math.round((toplamKullanilanDeger / parseFloat(ciro)) * 100)
-    : null;
+  const kullanimYuzdesi = yuzdeHesapla(toplamKullanilanDeger, ciroSayisi);
   const kullanimRenk = kullanimYuzdesi === null ? '#94a3b8'
     : kullanimYuzdesi <= 36 ? '#059669'
     : kullanimYuzdesi <= 38 ? '#d97706'
     : '#dc2626';
-  const ciroSayisi = ciro ? parseFloat(ciro) : 0;
   const urunKullanimYuzdesi = (u) => ciroSayisi > 0
-    ? Math.round((Number(u.kullanilan_deger ?? (u.giden * u.fiyat)) / ciroSayisi) * 100)
+    ? yuzdeHesapla(Number(u.kullanilan_deger ?? (u.giden * u.fiyat)), ciroSayisi)
     : null;
   const urunKullanimRenk = (oran) => oran === null ? '#94a3b8'
     : oran <= 10 ? '#059669'
@@ -184,7 +203,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
           <div className="stat-card" style={{ '--accent': '#8b5cf6' }}>
             <div className="stat-label">Aylık Ciro</div>
             <div className="stat-value" style={{ fontSize: 16, color: '#7c3aed' }}>
-              ₺{parseFloat(ciro).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+              ₺{ciroSayisi.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
             </div>
             <div className="stat-icon"><TrendingUp size={24} /></div>
           </div>
@@ -209,7 +228,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
           <div className="stat-card" style={{ '--accent': kullanimRenk }}>
             <div className="stat-label">Kullanım %</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: 4 }}>
-              <div className="stat-value" style={{ color: kullanimRenk }}>%{kullanimYuzdesi}</div>
+              <div className="stat-value" style={{ color: kullanimRenk }}>{yuzdeFmt(kullanimYuzdesi)}</div>
               <div style={{ fontSize: 11, fontWeight: 500, color: kullanimRenk, marginBottom: 3 }}>
                 {kullanimYuzdesi <= 36 ? 'Normal' : kullanimYuzdesi <= 38 ? 'Dikkat' : 'Yüksek'}
               </div>
@@ -337,7 +356,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
                         return (
                           <div className="product-usage-cell">
                             <div className="product-usage-head">
-                              <span style={{ color: renk }}>{oran === null ? '—' : `%${oran}`}</span>
+                              <span style={{ color: renk }}>{yuzdeFmt(oran)}</span>
                             </div>
                             <div className="product-usage-track">
                               <div style={{ width: `${Math.min(oran ?? 0, 100)}%`, background: renk }} />
@@ -396,7 +415,7 @@ const ayKapali = ayKapaliHam && !donemAcik;
                     <div className="mobile-stock-usage">
                       <div className="mobile-stock-usage-head">
                         <span>Kullanım %</span>
-                        <strong style={{ color: renk }}>{oran === null ? '—' : `%${oran}`}</strong>
+                        <strong style={{ color: renk }}>{yuzdeFmt(oran)}</strong>
                       </div>
                       <div className="product-usage-track">
                         <div style={{ width: `${Math.min(oran ?? 0, 100)}%`, background: renk }} />
