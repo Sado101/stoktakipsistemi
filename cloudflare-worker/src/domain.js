@@ -196,6 +196,7 @@ function movementValue(product, hareketler, type, period = null, fallbackPrice =
 
 function fifoStockValue(product, hareketler, fallbackPrice = null) {
   const layers = [];
+  let oversoldDebt = 0;
   const devreden = Number(product.devreden_stok || 0);
   const fallback = fallbackPrice ?? unitPrice(product.devreden_birim_fiyat, product.fiyat);
   if (devreden > 0) layers.push({ miktar: devreden, fiyat: fallback });
@@ -203,7 +204,12 @@ function fifoStockValue(product, hareketler, fallbackPrice = null) {
     const miktar = Number(hareket.miktar || 0);
     if (miktar <= 0) continue;
     if (hareket.hareket_turu === 'giris') {
-      layers.push({ miktar, fiyat: unitPrice(hareket.birim_fiyat, fallback) });
+      const debtPayment = Math.min(oversoldDebt, miktar);
+      oversoldDebt -= debtPayment;
+      const kalanGiris = miktar - debtPayment;
+      if (kalanGiris > 0.0000001) {
+        layers.push({ miktar: kalanGiris, fiyat: unitPrice(hareket.birim_fiyat, fallback) });
+      }
     } else if (hareket.hareket_turu === 'cikis') {
       let kalan = miktar;
       for (const layer of layers) {
@@ -215,6 +221,7 @@ function fifoStockValue(product, hareketler, fallbackPrice = null) {
       for (let i = layers.length - 1; i >= 0; i -= 1) {
         if (layers[i].miktar <= 0.0000001) layers.splice(i, 1);
       }
+      if (kalan > 0.0000001) oversoldDebt += kalan;
     }
   }
   return round2(layers.reduce((sum, layer) => sum + layer.miktar * layer.fiyat, 0));
