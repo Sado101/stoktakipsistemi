@@ -139,7 +139,6 @@ def _migrate_db():
         "ALTER TABLE stok_hareketleri ADD COLUMN fifo_detay TEXT",
         "UPDATE stok_hareketleri SET birim_fiyat = (SELECT fiyat FROM urunler WHERE urunler.id = stok_hareketleri.urun_id) WHERE birim_fiyat IS NULL",
         "ALTER TABLE urunler ADD COLUMN devreden_birim_fiyat FLOAT",
-        "UPDATE urunler SET devreden_birim_fiyat = fiyat WHERE devreden_birim_fiyat IS NULL",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -161,12 +160,18 @@ def _migrate_postgres_db():
         "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS fifo_detay TEXT",
         "UPDATE stok_hareketleri h SET birim_fiyat = u.fiyat FROM urunler u WHERE h.urun_id = u.id AND h.birim_fiyat IS NULL",
         "ALTER TABLE urunler ADD COLUMN IF NOT EXISTS devreden_birim_fiyat DOUBLE PRECISION",
-        "UPDATE urunler SET devreden_birim_fiyat = fiyat WHERE devreden_birim_fiyat IS NULL",
         "ALTER TABLE urunler DROP CONSTRAINT IF EXISTS urunler_urun_id_key",
         "DROP INDEX IF EXISTS ix_urunler_urun_id",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_urun_sube_urun_id ON urunler (sube_id, urun_id)",
     ]
     with db.engine.connect() as conn:
+        if db.engine.dialect.name == 'postgresql':
+            try:
+                conn.execute(db.text("SET lock_timeout TO '2s'"))
+                conn.execute(db.text("SET statement_timeout TO '8s'"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
         for sql in migrations:
             try:
                 conn.execute(db.text(sql))
