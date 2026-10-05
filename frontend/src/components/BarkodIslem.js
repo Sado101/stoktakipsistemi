@@ -123,7 +123,7 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
         tempId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         urun,
         miktar: temizMiktar,
-        birim_fiyat: islemTuru === 'giris' ? temizFiyat : Number(urun.fiyat || 0),
+        birim_fiyat: islemTuru === 'giris' ? temizFiyat : null,
         hareket_turu: islemTuru,
         tarih,
       },
@@ -149,15 +149,18 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
     setAktariliyor(true);
     try {
       for (const item of [...liste].reverse()) {
-        await api.createHareket({
+        const payload = {
           urun_id: item.urun.id,
           hareket_turu: item.hareket_turu,
           miktar: item.miktar,
-          birim_fiyat: Number(item.birim_fiyat ?? item.urun.fiyat ?? 0),
           tarih: item.tarih,
           aciklama: '',
           islem_kaynagi: 'barkod',
-        });
+        };
+        if (item.hareket_turu === 'giris') {
+          payload.birim_fiyat = Number(item.birim_fiyat ?? item.urun.fiyat ?? 0);
+        }
+        await api.createHareket(payload);
       }
       setListe([]);
       setSeciliUrun(null);
@@ -354,7 +357,9 @@ export default function BarkodIslem({ secilenSube, yenile, onHareket, ay, yil, d
                 <div>
                   <strong>{item.urun.ad}</strong>
                   <span>{item.urun.urun_id} · {item.tarih.split('-').reverse().join('.')}</span>
-                  <span>Fiyat: {fiyatFmt(item.birim_fiyat)} · Tutar: {fiyatFmt(Number(item.miktar || 0) * Number(item.birim_fiyat || 0))}</span>
+                  {item.hareket_turu === 'giris'
+                    ? <span>Fiyat: {fiyatFmt(item.birim_fiyat)} · Tutar: {fiyatFmt(Number(item.miktar || 0) * Number(item.birim_fiyat || 0))}</span>
+                    : <span>Fiyat: FIFO ile otomatik · Tutar: aktarımda hesaplanır</span>}
                 </div>
                 <div className="barcode-transfer-meta">
                   <em>{item.hareket_turu === 'giris' ? 'Giriş' : 'Çıkış'}</em>
