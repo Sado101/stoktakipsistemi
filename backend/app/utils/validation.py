@@ -44,7 +44,7 @@ def parse_float(value, field, required=False, min_value=None):
             return None, bad_request('Zorunlu alan eksik', fields=[field])
         return None, None
     try:
-        parsed = float(value)
+        parsed = float(str(value).strip().replace(',', '.'))
     except (TypeError, ValueError):
         return None, bad_request(f'{field} sayısal olmalı')
     if min_value is not None and parsed < min_value:

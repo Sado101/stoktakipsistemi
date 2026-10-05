@@ -6,6 +6,7 @@ from app.routes.auth import login_required, admin_required
 from app.utils.audit import aktif_kullanici_adi, islem_kaydet
 from app.routes.permissions import izinli_sube_id, rapor_izni, stok_islem_izni
 from app.utils.excel_export import build_archive_workbook
+from app.utils.fifo import FifoStockError, recalculate_product_fifo
 from app.utils.validation import json_body, parse_float, parse_int, parse_iso_date, parse_month_year, require_fields
 from datetime import datetime
 import json
@@ -91,11 +92,8 @@ def create_hareket():
         if hata:
             return hata
     else:
-        birim_fiyat, hata = parse_float(fiyat_raw, 'birim_fiyat', min_value=0)
-        if hata:
-            return hata
-        if birim_fiyat is None:
-            birim_fiyat = float(urun.fiyat or 0)
+        # Çıkış maliyeti kullanıcıdan alınmaz; FIFO'ya göre backend hesaplar.
+        birim_fiyat = None
 
     hareket = StokHareketi(
         urun_id=urun_id,
@@ -110,8 +108,14 @@ def create_hareket():
     db.session.add(hareket)
     if hareket_turu == 'giris':
         urun.fiyat = birim_fiyat
+    try:
+        db.session.flush()
+        recalculate_product_fifo(urun)
+    except FifoStockError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
     islem_kaydet(urun.sube_id, 'Stok girişi' if hareket_turu == 'giris' else 'Stok çıkışı', 'Stok hareketi',
-                 f'{urun.ad} · {miktar:g} adet · Fiyat: {birim_fiyat:.2f}')
+                 f'{urun.ad} · {miktar:g} adet · FIFO fiyat: {float(hareket.birim_fiyat or 0):.2f}')
     db.session.commit()
     return jsonify(hareket.to_dict()), 201
 
@@ -119,6 +123,7 @@ def create_hareket():
 @login_required
 def delete_hareket(id):
     hareket = StokHareketi.query.get_or_404(id)
+    urun = hareket.urun
     if hareket.urun:
         engel = stok_islem_izni(hareket.urun.sube_id)
         if engel:
@@ -127,6 +132,13 @@ def delete_hareket(id):
     detay = f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet'
     islem_kaydet(sube_id, 'Hareket silindi', 'Stok hareketi', detay)
     db.session.delete(hareket)
+    if urun:
+        try:
+            db.session.flush()
+            recalculate_product_fifo(urun)
+        except FifoStockError as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
     db.session.commit()
     return jsonify({'message': 'Silindi'})
 
@@ -134,6 +146,7 @@ def delete_hareket(id):
 @login_required
 def update_hareket(id):
     hareket = StokHareketi.query.get_or_404(id)
+    eski_urun = hareket.urun
     data, hata = json_body()
     if hata:
         return hata
@@ -167,12 +180,17 @@ def update_hareket(id):
         if hata:
             return hata
         hareket.miktar = miktar
-    if data.get('birim_fiyat') is not None or data.get('fiyat') is not None:
+    fiyat_gonderildi = data.get('birim_fiyat') is not None or data.get('fiyat') is not None
+    if hareket.hareket_turu == 'giris' and fiyat_gonderildi:
         fiyat_raw = data.get('birim_fiyat', data.get('fiyat'))
         birim_fiyat, hata = parse_float(fiyat_raw, 'birim_fiyat', required=True, min_value=0)
         if hata:
             return hata
         hareket.birim_fiyat = birim_fiyat
+    elif hareket.hareket_turu == 'giris' and hareket.birim_fiyat is None:
+        return jsonify({'error': 'Giriş işlemlerinde fiyat zorunlu'}), 400
+    elif hareket.hareket_turu == 'cikis':
+        hareket.birim_fiyat = None
     if data.get('tarih'):
         tarih, hata = parse_iso_date(data.get('tarih'), required=True)
         if hata:
@@ -182,10 +200,21 @@ def update_hareket(id):
         hareket.aciklama = data.get('aciklama', '')
 
     hareket.islemi_yapan = aktif_kullanici_adi()
-    if hareket.hareket_turu == 'giris' and hareket.birim_fiyat is not None and hareket.urun:
-        hareket.urun.fiyat = hareket.birim_fiyat
-    islem_kaydet(hareket.urun.sube_id if hareket.urun else None, 'Hareket güncellendi', 'Stok hareketi',
-                 f'{hareket.urun.ad if hareket.urun else "Ürün"} · {hareket.miktar:g} adet · Fiyat: {float(hareket.birim_fiyat or 0):.2f}')
+    aktif_urun = kontrol_urun or hareket.urun
+    if hareket.hareket_turu == 'giris' and hareket.birim_fiyat is not None and aktif_urun:
+        aktif_urun.fiyat = hareket.birim_fiyat
+    try:
+        db.session.flush()
+        if eski_urun and aktif_urun and eski_urun.id != aktif_urun.id:
+            recalculate_product_fifo(eski_urun)
+        if aktif_urun:
+            recalculate_product_fifo(aktif_urun)
+    except FifoStockError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+    islem_kaydet(aktif_urun.sube_id if aktif_urun else None, 'Hareket güncellendi', 'Stok hareketi',
+                 f'{aktif_urun.ad if aktif_urun else "Ürün"} · {hareket.miktar:g} adet · Fiyat: {float(hareket.birim_fiyat or 0):.2f}')
     db.session.commit()
     return jsonify(hareket.to_dict())
 

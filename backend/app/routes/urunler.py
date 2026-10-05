@@ -5,6 +5,7 @@ from app.routes.auth import login_required
 from app.routes.permissions import izinli_sube_id, stok_islem_izni
 from app.utils.validation import json_body, parse_float, parse_int, require_fields, bad_request
 from app.utils.audit import islem_kaydet
+from app.utils.fifo import FifoStockError, recalculate_product_fifo
 
 urunler_bp = Blueprint('urunler', __name__)
 
@@ -94,7 +95,8 @@ def create_urun():
         fiyat=fiyat,
         kategori=kategori,
         sube_id=sube_id,
-        devreden_stok=devreden_stok
+        devreden_stok=devreden_stok,
+        devreden_birim_fiyat=fiyat
     )
     db.session.add(urun)
     islem_kaydet(sube_id, 'Ürün eklendi', 'Ürün', f'{ad} · Barkod: {urun_id} · Devreden stok: {devreden_stok:g}')
@@ -142,6 +144,8 @@ def update_urun(id):
         if hata:
             return hata
         urun.fiyat = fiyat
+        if urun.devreden_birim_fiyat is None:
+            urun.devreden_birim_fiyat = fiyat
     if 'kategori' in data:
         kategori, hata = _kategori_dogrula(data.get('kategori'))
         if hata:
@@ -157,6 +161,11 @@ def update_urun(id):
 
     yeni_ozet = f'{urun.ad} · Barkod: {urun.urun_id} · Stok: {urun.devreden_stok:g}'
     islem_kaydet(urun.sube_id, 'Ürün güncellendi', 'Ürün', f'{eski_ozet} → {yeni_ozet}')
+    try:
+        recalculate_product_fifo(urun)
+    except FifoStockError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
     db.session.commit()
     return jsonify(urun.to_dict())
 
