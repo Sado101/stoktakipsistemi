@@ -209,7 +209,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const kategoriAktif = kategoriBilgi(kategori);
   const KategoriIcon = kategoriAktif.Icon;
   const seciliFiyat = Number(seciliUrun?.fiyat || 0);
-  const devredenDegeri = Number(seciliUrun?.devreden_stok || 0) * seciliFiyat;
+  const devredenDegeri = Number(seciliUrun?.devreden_deger ?? (Number(seciliUrun?.devreden_stok || 0) * seciliFiyat));
   const gelenDegeri = Number(seciliUrun?.gelen_deger ?? (Number(seciliUrun?.gelen || 0) * seciliFiyat));
   const kullanilanDeger = Number(seciliUrun?.kullanilan_deger ?? (Number(seciliUrun?.giden || 0) * seciliFiyat));
   const guncelDeger = Number(seciliUrun?.toplam_deger ?? (Number(seciliUrun?.guncel_stok || 0) * seciliFiyat));

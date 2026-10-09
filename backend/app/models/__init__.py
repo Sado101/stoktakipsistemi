@@ -129,11 +129,46 @@ class Urun(db.Model):
             query = query.filter(StokHareketi.tarih >= baslangic, StokHareketi.tarih < bitis)
         return round(float(query.scalar() or 0), 2)
 
-    def fifo_stok_degeri(self, before_date=None):
+    def _unit_price(self, value=None, fallback=None):
+        fallback_value = float(fallback or 0) if fallback is not None else None
+        if value is not None:
+            parsed = float(value or 0)
+            if parsed <= 0 and fallback_value and fallback_value > 0:
+                return fallback_value
+            return parsed
+        if fallback_value is not None:
+            return fallback_value
+        return float(self.fiyat or 0)
+
+    def _historical_unit_price(self, cutoff_date=None):
+        """Kapalı dönemlerde, o döneme kadar bilinen son giriş fiyatını kullanır."""
+        query = StokHareketi.query.filter(
+            StokHareketi.urun_id == self.id,
+            StokHareketi.hareket_turu == 'giris',
+            StokHareketi.birim_fiyat.isnot(None),
+        )
+        if cutoff_date is not None:
+            query = query.filter(StokHareketi.tarih < cutoff_date)
+        son_giris = query.order_by(StokHareketi.tarih.desc(), StokHareketi.id.desc()).first()
+        if son_giris:
+            return float(son_giris.birim_fiyat or 0)
+
+        ilk_giris = StokHareketi.query.filter(
+            StokHareketi.urun_id == self.id,
+            StokHareketi.hareket_turu == 'giris',
+            StokHareketi.birim_fiyat.isnot(None),
+        ).order_by(StokHareketi.tarih.asc(), StokHareketi.id.asc()).first()
+        if ilk_giris:
+            return float(ilk_giris.birim_fiyat or 0)
+
+        return self._unit_price(self.devreden_birim_fiyat, self.fiyat)
+
+    def fifo_stok_degeri(self, before_date=None, fallback_price=None):
         """FIFO'ya göre belirtilen tarihten önce elde kalan stok değerini hesaplar."""
         layers = []
+        oversold_debt = 0.0
         devreden_miktar = float(self.devreden_stok or 0)
-        devreden_fiyat = float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0))
+        devreden_fiyat = self._unit_price(self.devreden_birim_fiyat, fallback_price if fallback_price is not None else self.fiyat)
         if devreden_miktar > 0:
             layers.append({'miktar': devreden_miktar, 'fiyat': devreden_fiyat})
 
@@ -147,8 +182,12 @@ class Urun(db.Model):
             if miktar <= 0:
                 continue
             if hareket.hareket_turu == 'giris':
-                fiyat = float(hareket.birim_fiyat if hareket.birim_fiyat is not None else (self.fiyat or 0))
-                layers.append({'miktar': miktar, 'fiyat': fiyat})
+                debt_payment = min(oversold_debt, miktar)
+                oversold_debt -= debt_payment
+                kalan_giris = miktar - debt_payment
+                if kalan_giris > 0.0000001:
+                    fiyat = self._unit_price(hareket.birim_fiyat, fallback_price if fallback_price is not None else self.fiyat)
+                    layers.append({'miktar': kalan_giris, 'fiyat': fiyat})
             elif hareket.hareket_turu == 'cikis':
                 kalan = miktar
                 for layer in layers:
@@ -158,6 +197,8 @@ class Urun(db.Model):
                     layer['miktar'] = float(layer['miktar'] or 0) - alinacak
                     kalan -= alinacak
                 layers = [l for l in layers if float(l['miktar'] or 0) > 0.0000001]
+                if kalan > 0.0000001:
+                    oversold_debt += kalan
 
         return round(sum(float(l['miktar'] or 0) * float(l['fiyat'] or 0) for l in layers), 2)
 
@@ -179,21 +220,30 @@ class Urun(db.Model):
             ay_int, yil_int = int(ay), int(yil)
             baslangic = date(yil_int, ay_int, 1)
             bitis = date(yil_int + 1, 1, 1) if ay_int == 12 else date(yil_int, ay_int + 1, 1)
-            devreden_deger = self.fifo_stok_degeri(before_date=baslangic)
-            toplam_deger = self.fifo_stok_degeri(before_date=bitis)
+            bugun = datetime.now(ZoneInfo('Europe/Istanbul')).date()
+            kapali_donem = bitis <= bugun
+            if kapali_donem:
+                donem_fiyati = self._historical_unit_price(cutoff_date=bitis)
+                devreden_deger = self.fifo_stok_degeri(before_date=baslangic, fallback_price=donem_fiyati)
+                toplam_deger = self.fifo_stok_degeri(before_date=bitis, fallback_price=donem_fiyati)
+            else:
+                donem_fiyati = self._unit_price(self.fiyat, self.devreden_birim_fiyat)
+                devreden_deger = round(max(float(devreden or 0), 0) * donem_fiyati, 2)
+                toplam_deger = round(max(float(guncel or 0), 0) * donem_fiyati, 2)
         else:
             gelen = float(query_giris.scalar() or 0)
             giden = float(query_cikis.scalar() or 0)
             devreden = float(self.devreden_stok or 0)
             guncel = devreden + gelen - giden
-            devreden_deger = round(devreden * float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0)), 2)
-            toplam_deger = self.fifo_stok_degeri()
+            donem_fiyati = self._unit_price(self.fiyat, self.devreden_birim_fiyat)
+            devreden_deger = round(max(devreden, 0) * donem_fiyati, 2)
+            toplam_deger = round(max(guncel, 0) * donem_fiyati, 2)
         return {
             'id': self.id,
             'urun_id': self.urun_id,
             'ad': self.ad,
-            'fiyat': self.fiyat,
-            'devreden_birim_fiyat': float(self.devreden_birim_fiyat if self.devreden_birim_fiyat is not None else (self.fiyat or 0)),
+            'fiyat': donem_fiyati,
+            'devreden_birim_fiyat': self._unit_price(self.devreden_birim_fiyat, donem_fiyati),
             'kategori': self.kategori,
             'sube_id': self.sube_id,
             'sube_isim': self.sube.isim if self.sube else '',
