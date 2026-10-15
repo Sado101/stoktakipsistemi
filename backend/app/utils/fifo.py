@@ -16,6 +16,7 @@ def recalculate_product_fifo(urun):
     Çıkış satırındaki `birim_fiyat`, çıkışın FIFO ağırlıklı birim maliyeti olur.
     """
     layers = []
+    oversold_debt = 0.0
     devreden_miktar = float(urun.devreden_stok or 0)
     devreden_fiyat = float(urun.devreden_birim_fiyat if urun.devreden_birim_fiyat is not None else (urun.fiyat or 0))
 
@@ -42,11 +43,17 @@ def recalculate_product_fifo(urun):
 
         if hareket.hareket_turu == 'giris':
             fiyat = float(hareket.birim_fiyat if hareket.birim_fiyat is not None else (urun.fiyat or 0))
+            debt_payment = min(oversold_debt, miktar)
+            oversold_debt -= debt_payment
+            kalan_giris = miktar - debt_payment
+            if kalan_giris <= 0.0000001:
+                hareket.fifo_detay = None
+                continue
             layers.append({
                 'kaynak': 'Giriş',
                 'hareket_id': hareket.id,
                 'tarih': hareket.tarih.isoformat() if hareket.tarih else None,
-                'kalan': miktar,
+                'kalan': kalan_giris,
                 'fiyat': fiyat,
             })
             hareket.fifo_detay = None
@@ -79,11 +86,18 @@ def recalculate_product_fifo(urun):
                 'tutar': round(kullanilan * fiyat, 2),
             })
 
+        # Eski verilerdeki fazla çıkışlar yeni kayıtları kilitlememeli.
+        # Eksik bölüm borç olarak izlenir ve sonraki girişlerle kapanır.
         if kalan_cikis > 0.0000001:
-            raise FifoStockError(
-                f'{urun.ad} için yeterli stok yok. '
-                f'Çıkış: {_fmt_miktar(miktar)}, eksik: {_fmt_miktar(kalan_cikis)}'
-            )
+            oversold_debt += kalan_cikis
+            detay.append({
+                'kaynak': 'Geçmiş eksik stok',
+                'hareket_id': None,
+                'tarih': None,
+                'miktar': round(kalan_cikis, 6),
+                'birim_fiyat': 0,
+                'tutar': 0,
+            })
 
         hareket.birim_fiyat = round(toplam_deger / miktar, 6) if miktar else 0
         hareket.fifo_detay = json.dumps(detay, ensure_ascii=False)
