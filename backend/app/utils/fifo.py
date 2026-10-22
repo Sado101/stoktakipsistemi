@@ -18,7 +18,12 @@ def recalculate_product_fifo(urun):
     layers = []
     oversold_debt = 0.0
     devreden_miktar = float(urun.devreden_stok or 0)
-    devreden_fiyat = float(urun.devreden_birim_fiyat if urun.devreden_birim_fiyat is not None else (urun.fiyat or 0))
+    # Eski kayıtlarda devreden_birim_fiyat 0 olarak saklanmış olabilir. 0 gerçek
+    # bir alış fiyatı değilse FIFO'nun ilk partiyi ücretsiz tüketmesine izin
+    # verme; ürünün geçerli fiyatını kullan.
+    devreden_fiyat = float(urun.devreden_birim_fiyat or 0)
+    if devreden_fiyat <= 0:
+        devreden_fiyat = float(urun.fiyat or 0)
 
     if devreden_miktar > 0:
         layers.append({
@@ -42,7 +47,9 @@ def recalculate_product_fifo(urun):
             continue
 
         if hareket.hareket_turu == 'giris':
-            fiyat = float(hareket.birim_fiyat if hareket.birim_fiyat is not None else (urun.fiyat or 0))
+            fiyat = float(hareket.birim_fiyat or 0)
+            if fiyat <= 0:
+                fiyat = float(urun.fiyat or 0)
             debt_payment = min(oversold_debt, miktar)
             oversold_debt -= debt_payment
             kalan_giris = miktar - debt_payment

@@ -116,6 +116,7 @@ def create_app():
         elif db.engine.dialect.name == 'postgresql':
             _migrate_postgres_db()
         _ensure_admin_account()
+        _repair_fifo_prices_once()
 
     return app
 
@@ -139,6 +140,7 @@ def _migrate_db():
         "ALTER TABLE stok_hareketleri ADD COLUMN fifo_detay TEXT",
         "UPDATE stok_hareketleri SET birim_fiyat = (SELECT fiyat FROM urunler WHERE urunler.id = stok_hareketleri.urun_id) WHERE birim_fiyat IS NULL",
         "ALTER TABLE urunler ADD COLUMN devreden_birim_fiyat FLOAT",
+        "UPDATE urunler SET devreden_birim_fiyat = fiyat WHERE devreden_birim_fiyat IS NULL OR devreden_birim_fiyat <= 0",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -160,6 +162,7 @@ def _migrate_postgres_db():
         "ALTER TABLE stok_hareketleri ADD COLUMN IF NOT EXISTS fifo_detay TEXT",
         "UPDATE stok_hareketleri h SET birim_fiyat = u.fiyat FROM urunler u WHERE h.urun_id = u.id AND h.birim_fiyat IS NULL",
         "ALTER TABLE urunler ADD COLUMN IF NOT EXISTS devreden_birim_fiyat DOUBLE PRECISION",
+        "UPDATE urunler SET devreden_birim_fiyat = fiyat WHERE devreden_birim_fiyat IS NULL OR devreden_birim_fiyat <= 0",
         "ALTER TABLE urunler DROP CONSTRAINT IF EXISTS urunler_urun_id_key",
         "DROP INDEX IF EXISTS ix_urunler_urun_id",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_urun_sube_urun_id ON urunler (sube_id, urun_id)",
@@ -172,12 +175,46 @@ def _migrate_postgres_db():
                 conn.commit()
             except Exception:
                 conn.rollback()
+
         for sql in migrations:
             try:
                 conn.execute(db.text(sql))
                 conn.commit()
             except Exception:
                 conn.rollback()
+
+
+def _repair_fifo_prices_once():
+    """Eski FIFO fiyatlarını bir kez yeniden üretir.
+
+    Bu işlem miktarları veya hareketleri silmez/değiştirmez; yalnızca türetilen
+    çıkış birim fiyatı ve FIFO detaylarını günceller. Böylece eski kayıtlardaki
+    0 fiyatlı devreden parti kaynaklı 0/karma fiyatlar temizlenir.
+    """
+    from .models import Urun
+    from .utils.fifo import recalculate_product_fifo
+
+    with db.engine.begin() as conn:
+        conn.execute(db.text(
+            "CREATE TABLE IF NOT EXISTS app_migrations "
+            "(name VARCHAR(120) PRIMARY KEY)"
+        ))
+        already_done = conn.execute(db.text(
+            "SELECT 1 FROM app_migrations WHERE name = 'fifo-prices-v2'"
+        )).first()
+        if already_done:
+            return
+
+    # Aynı transaction içinde tüm ürünlerin türetilen FIFO alanlarını düzelt.
+    for urun in Urun.query.all():
+        recalculate_product_fifo(urun)
+    db.session.commit()
+
+    with db.engine.begin() as conn:
+        conn.execute(db.text(
+            "INSERT INTO app_migrations (name) VALUES ('fifo-prices-v2') "
+            "ON CONFLICT (name) DO NOTHING"
+        ))
 
 
 def _ensure_admin_account():
