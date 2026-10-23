@@ -146,6 +146,7 @@ class Urun(db.Model):
             StokHareketi.urun_id == self.id,
             StokHareketi.hareket_turu == 'giris',
             StokHareketi.birim_fiyat.isnot(None),
+            StokHareketi.birim_fiyat > 0.01,
         )
         if cutoff_date is not None:
             query = query.filter(StokHareketi.tarih < cutoff_date)
@@ -157,6 +158,7 @@ class Urun(db.Model):
             StokHareketi.urun_id == self.id,
             StokHareketi.hareket_turu == 'giris',
             StokHareketi.birim_fiyat.isnot(None),
+            StokHareketi.birim_fiyat > 0.01,
         ).order_by(StokHareketi.tarih.asc(), StokHareketi.id.asc()).first()
         if ilk_giris:
             return float(ilk_giris.birim_fiyat or 0)
@@ -168,7 +170,15 @@ class Urun(db.Model):
         layers = []
         oversold_debt = 0.0
         devreden_miktar = float(self.devreden_stok or 0)
+        first_entry = StokHareketi.query.filter(
+            StokHareketi.urun_id == self.id,
+            StokHareketi.hareket_turu == 'giris',
+            StokHareketi.birim_fiyat > 0.01,
+        ).order_by(StokHareketi.tarih.asc(), StokHareketi.id.asc()).first()
+        first_entry_price = float(first_entry.birim_fiyat) if first_entry else 0
         devreden_fiyat = self._unit_price(self.devreden_birim_fiyat, fallback_price if fallback_price is not None else self.fiyat)
+        if devreden_fiyat <= 0.01 and first_entry_price > 0:
+            devreden_fiyat = first_entry_price
         if devreden_miktar > 0:
             layers.append({'miktar': devreden_miktar, 'fiyat': devreden_fiyat})
 
@@ -186,7 +196,12 @@ class Urun(db.Model):
                 oversold_debt -= debt_payment
                 kalan_giris = miktar - debt_payment
                 if kalan_giris > 0.0000001:
-                    fiyat = self._unit_price(hareket.birim_fiyat, fallback_price if fallback_price is not None else self.fiyat)
+                    fiyat = self._unit_price(
+                        hareket.birim_fiyat,
+                        first_entry_price or (fallback_price if fallback_price is not None else self.fiyat),
+                    )
+                    if fiyat <= 0.01 and first_entry_price > 0:
+                        fiyat = first_entry_price
                     layers.append({'miktar': kalan_giris, 'fiyat': fiyat})
             elif hareket.hareket_turu == 'cikis':
                 kalan = miktar

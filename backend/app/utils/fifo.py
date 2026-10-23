@@ -18,12 +18,26 @@ def recalculate_product_fifo(urun):
     layers = []
     oversold_debt = 0.0
     devreden_miktar = float(urun.devreden_stok or 0)
+    from app.models import StokHareketi
+
+    hareketler = StokHareketi.query.filter_by(urun_id=urun.id).order_by(
+        StokHareketi.tarih.asc(),
+        StokHareketi.id.asc()
+    ).all()
+    # Devreden fiyatı 0 (ve eski migration'lardan kalan 0,01 gibi yer tutucu)
+    # ise, devreden partiyi ilk gerçek giriş partisinin fiyatına bağla.
+    ilk_gercek_giris = next(
+        (float(h.birim_fiyat) for h in hareketler
+         if h.hareket_turu == 'giris' and float(h.birim_fiyat or 0) > 0.01),
+        float(urun.fiyat or 0),
+    )
     # Eski kayıtlarda devreden_birim_fiyat 0 olarak saklanmış olabilir. 0 gerçek
     # bir alış fiyatı değilse FIFO'nun ilk partiyi ücretsiz tüketmesine izin
     # verme; ürünün geçerli fiyatını kullan.
     devreden_fiyat = float(urun.devreden_birim_fiyat or 0)
-    if devreden_fiyat <= 0:
-        devreden_fiyat = float(urun.fiyat or 0)
+    if devreden_fiyat <= 0.01 and ilk_gercek_giris > 0:
+        devreden_fiyat = ilk_gercek_giris
+        urun.devreden_birim_fiyat = devreden_fiyat
 
     if devreden_miktar > 0:
         layers.append({
@@ -34,13 +48,6 @@ def recalculate_product_fifo(urun):
             'fiyat': devreden_fiyat,
         })
 
-    from app.models import StokHareketi
-
-    hareketler = StokHareketi.query.filter_by(urun_id=urun.id).order_by(
-        StokHareketi.tarih.asc(),
-        StokHareketi.id.asc()
-    ).all()
-
     for hareket in hareketler:
         miktar = float(hareket.miktar or 0)
         if miktar <= 0:
@@ -49,7 +56,7 @@ def recalculate_product_fifo(urun):
         if hareket.hareket_turu == 'giris':
             fiyat = float(hareket.birim_fiyat or 0)
             if fiyat <= 0:
-                fiyat = float(urun.fiyat or 0)
+                fiyat = ilk_gercek_giris if ilk_gercek_giris > 0 else float(urun.fiyat or 0)
             debt_payment = min(oversold_debt, miktar)
             oversold_debt -= debt_payment
             kalan_giris = miktar - debt_payment

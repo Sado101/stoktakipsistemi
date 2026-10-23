@@ -200,7 +200,7 @@ def _repair_fifo_prices_once():
             "(name VARCHAR(120) PRIMARY KEY)"
         ))
         already_done = conn.execute(db.text(
-            "SELECT 1 FROM app_migrations WHERE name = 'fifo-prices-v2'"
+            "SELECT 1 FROM app_migrations WHERE name = 'fifo-prices-v3'"
         )).first()
         if already_done:
             return
@@ -212,7 +212,7 @@ def _repair_fifo_prices_once():
 
     with db.engine.begin() as conn:
         conn.execute(db.text(
-            "INSERT INTO app_migrations (name) VALUES ('fifo-prices-v2') "
+            "INSERT INTO app_migrations (name) VALUES ('fifo-prices-v3') "
             "ON CONFLICT (name) DO NOTHING"
         ))
 
