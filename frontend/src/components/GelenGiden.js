@@ -97,6 +97,7 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   const [yukleniyor, setYukleniyor] = useState(false);
   const [harModal, setHarModal] = useState(false);
   const [duzenlenenHareket, setDuzenlenenHareket] = useState(null);
+  const [cikisOnizleme, setCikisOnizleme] = useState(null);
   const [acikMenu, setAcikMenu] = useState(null);
   const [acikGun, setAcikGun] = useState(null);
   const [arama, setArama] = useState('');
@@ -147,6 +148,18 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
   }, [ay, yil, secilenSube, yenile]);
 
   useEffect(() => () => kamerayiKapat(), []);
+
+  useEffect(() => {
+    if (!harModal || form.hareket_turu !== 'cikis' || !form.urun_id || !form.miktar || !form.tarih) {
+      setCikisOnizleme(null);
+      return undefined;
+    }
+    let cancelled = false;
+    api.getCikisOnizleme({ urun_id: form.urun_id, miktar: form.miktar, tarih: form.tarih })
+      .then(data => { if (!cancelled) setCikisOnizleme(data); })
+      .catch(() => { if (!cancelled) setCikisOnizleme(null); });
+    return () => { cancelled = true; };
+  }, [harModal, form.hareket_turu, form.urun_id, form.miktar, form.tarih]);
 
   // Kategori filtresi kaldırıldıktan sonra okutulan barkodu yeni listede arar.
   useEffect(() => {
@@ -762,6 +775,17 @@ export default function GelenGiden({ secilenSube, yenile, onHareket, ay, yil, do
                   <input type="number" step="0.01" min="0" value={form.birim_fiyat}
                     onChange={e => setForm(f => ({ ...f, birim_fiyat: e.target.value }))}
                     placeholder="0.00" inputMode="decimal" />
+                </div>
+              )}
+              {form.hareket_turu === 'cikis' && (
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label>FIFO çıkış fiyatı (önizleme)</label>
+                  <input type="text" value={cikisOnizleme ? fiyatFmt(cikisOnizleme.birim_fiyat) : 'Hesaplanıyor...'} readOnly />
+                  {cikisOnizleme?.eksik > 0 && (
+                    <small style={{ color: '#b91c1c' }}>
+                      Bu tarihte {sayi(cikisOnizleme.eksik)} adet eksik stok var; eksik kısım maliyetsiz borç olarak izlenir.
+                    </small>
+                  )}
                 </div>
               )}
               <div className="form-group" style={{ marginBottom: 20 }}>

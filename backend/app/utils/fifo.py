@@ -9,6 +9,57 @@ def _fmt_miktar(value):
     return f'{float(value):g}'
 
 
+def preview_exit_fifo(urun, tarih, miktar):
+    """Yeni çıkış kaydedilmeden önce FIFO maliyetini önizler."""
+    from app.models import StokHareketi
+
+    miktar = float(miktar or 0)
+    hareketler = StokHareketi.query.filter(
+        StokHareketi.urun_id == urun.id,
+        StokHareketi.tarih <= tarih,
+    ).order_by(StokHareketi.tarih.asc(), StokHareketi.id.asc()).all()
+    ilk_giris = next(
+        (float(h.birim_fiyat) for h in hareketler
+         if h.hareket_turu == 'giris' and float(h.birim_fiyat or 0) > 0.01),
+        float(urun.fiyat or 0),
+    )
+    devreden_fiyat = float(urun.devreden_birim_fiyat or 0)
+    if devreden_fiyat <= 0.01:
+        devreden_fiyat = ilk_giris
+    layers = [{'kalan': float(urun.devreden_stok or 0), 'fiyat': devreden_fiyat}]
+    for hareket in hareketler:
+        adet = float(hareket.miktar or 0)
+        if adet <= 0:
+            continue
+        if hareket.hareket_turu == 'giris':
+            fiyat = float(hareket.birim_fiyat or 0)
+            if fiyat <= 0.01:
+                fiyat = ilk_giris
+            layers.append({'kalan': adet, 'fiyat': fiyat})
+        elif hareket.hareket_turu == 'cikis':
+            kalan = adet
+            for layer in layers:
+                if kalan <= 0:
+                    break
+                kullanilan = min(layer['kalan'], kalan)
+                layer['kalan'] -= kullanilan
+                kalan -= kullanilan
+            layers = [l for l in layers if l['kalan'] > 0.0000001]
+    kalan = miktar
+    toplam = 0.0
+    for layer in layers:
+        if kalan <= 0:
+            break
+        kullanilan = min(layer['kalan'], kalan)
+        toplam += kullanilan * layer['fiyat']
+        kalan -= kullanilan
+    return {
+        'birim_fiyat': round(toplam / miktar, 6) if miktar else 0,
+        'tutar': round(toplam, 2),
+        'eksik': round(max(kalan, 0), 6),
+    }
+
+
 def recalculate_product_fifo(urun):
     """Ürünün tüm çıkış maliyetlerini kronolojik FIFO'ya göre yeniden hesaplar.
 

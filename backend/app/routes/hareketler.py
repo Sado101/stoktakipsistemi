@@ -6,12 +6,33 @@ from app.routes.auth import login_required, admin_required
 from app.utils.audit import aktif_kullanici_adi, islem_kaydet
 from app.routes.permissions import izinli_sube_id, rapor_izni, stok_islem_izni
 from app.utils.excel_export import build_archive_workbook
-from app.utils.fifo import FifoStockError, recalculate_product_fifo
+from app.utils.fifo import FifoStockError, recalculate_product_fifo, preview_exit_fifo
 from app.utils.validation import json_body, parse_float, parse_int, parse_iso_date, parse_month_year, require_fields
 from datetime import datetime
 import json
 
 hareketler_bp = Blueprint('hareketler', __name__)
+
+
+@hareketler_bp.route('/cikis-onizleme', methods=['GET'])
+@login_required
+def cikis_onizleme():
+    urun_id, hata = parse_int(request.args.get('urun_id'), 'urun_id', required=True, min_value=1)
+    if hata:
+        return hata
+    miktar, hata = parse_float(request.args.get('miktar'), 'miktar', required=True, min_value=0.000001)
+    if hata:
+        return hata
+    tarih, hata = parse_iso_date(request.args.get('tarih'), required=True)
+    if hata:
+        return hata
+    urun = Urun.query.get(urun_id)
+    if not urun:
+        return jsonify({'error': 'Ürün bulunamadı'}), 404
+    engel = stok_islem_izni(urun.sube_id)
+    if engel:
+        return engel
+    return jsonify(preview_exit_fifo(urun, tarih, miktar))
 
 
 @hareketler_bp.route('/', methods=['GET'])

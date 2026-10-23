@@ -59,6 +59,7 @@ export const api = {
   getStokToplam: (params = {}) => { const q = new URLSearchParams(params).toString(); return req(`/stok/toplam${q ? '?' + q : ''}`); },
 
   getHareketler: (params = {}) => { const q = new URLSearchParams(params).toString(); return req(`/hareketler/${q ? '?' + q : ''}`); },
+  getCikisOnizleme: (params = {}) => { const q = new URLSearchParams(params).toString(); return req(`/hareketler/cikis-onizleme?${q}`); },
   getIslemGecmisi: (params = {}) => { const q = new URLSearchParams(params).toString(); return req(`/hareketler/islem-gecmisi${q ? '?' + q : ''}`); },
   createHareket: (data) => req('/hareketler/', { method: 'POST', body: JSON.stringify(data) }),
   updateHareket: (id, data) => req(`/hareketler/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
